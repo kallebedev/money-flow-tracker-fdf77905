@@ -31,17 +31,24 @@ const Login = () => {
         setIsLoading(true);
         try {
             if (isLogin) {
-                await login(email, password);
-                toast.success("Login realizado com sucesso!");
+                const { error } = await login(email, password);
+                if (error) {
+                    toast.error(error.message);
+                } else {
+                    toast.success("Login realizado com sucesso!");
+                    navigate(from, { replace: true });
+                }
             } else {
-                await signUp(email, password, name);
-                toast.success("Conta criada! Verifique seu e-mail para confirmar.");
-                setIsLogin(true);
-                return;
+                const { error } = await signUp(email, password, name);
+                if (error) {
+                    toast.error(error.message);
+                } else {
+                    toast.success("Conta criada! Verifique seu e-mail para confirmar.");
+                    setIsLogin(true);
+                }
             }
-            navigate(from, { replace: true });
         } catch (error: any) {
-            toast.error(error.message || "Erro ao realizar operação. Tente novamente.");
+            toast.error("Erro inesperado ao realizar operação.");
         } finally {
             setIsLoading(false);
         }

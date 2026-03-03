@@ -5,12 +5,11 @@ import { User, Session } from "@supabase/supabase-js";
 interface AuthContextType {
   user: User | null;
   session: Session | null;
-  // isAuthenticated: boolean; // Removed as per the provider value change
-  login: (email: string) => Promise<{ error: any }>;
-  signUp: (email: string, name: string) => Promise<{ error: any }>;
+  login: (email: string, password: string) => Promise<{ error: any }>;
+  signUp: (email: string, password: string, name: string) => Promise<{ error: any }>;
   logout: () => Promise<void>;
   updateProfile: (data: { name?: string; avatar_url?: string }) => Promise<{ error: any }>;
-  loading: boolean; // Renamed from isLoading
+  loading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -38,18 +37,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const login = async (email: string) => {
-    return await supabase.auth.signInWithOtp({
+  const login = async (email: string, password: string) => {
+    return await supabase.auth.signInWithPassword({
       email,
-      options: {
-        emailRedirectTo: window.location.origin,
-      },
+      password,
     });
   };
 
-  const signUp = async (email: string, name: string) => {
-    return await supabase.auth.signInWithOtp({
+  const signUp = async (email: string, password: string, name: string) => {
+    return await supabase.auth.signUp({
       email,
+      password,
       options: {
         data: { name },
         emailRedirectTo: window.location.origin,
@@ -62,15 +60,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateProfile = async (data: { name?: string; avatar_url?: string }) => {
-    const { data: updatedUser, error } = await supabase.auth.updateUser({
+    const { data: updatedData, error } = await supabase.auth.updateUser({
       data: {
         name: data.name,
         avatar_url: data.avatar_url,
       },
     });
 
-    if (!error && updatedUser) {
-      setUser(updatedUser.user);
+    if (!error && updatedData.user) {
+      setUser(updatedData.user);
     }
 
     return { error };

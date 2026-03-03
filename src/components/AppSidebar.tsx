@@ -1,6 +1,7 @@
-import { LayoutDashboard, ArrowLeftRight, Tag, Target, DollarSign } from "lucide-react";
+import { LayoutDashboard, ArrowLeftRight, Tag, Target, DollarSign, LogOut, User } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Sidebar,
   SidebarContent,
@@ -9,8 +10,10 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarFooter,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const items = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
@@ -22,6 +25,7 @@ const items = [
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
+  const { user, logout } = useAuth();
   const location = useLocation();
 
   return (
@@ -57,6 +61,35 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      <SidebarFooter className="border-t p-2">
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <div className={`flex items-center gap-3 px-3 py-2 ${collapsed ? 'justify-center' : ''}`}>
+              <Avatar className="h-8 w-8 border">
+                <AvatarImage src={user?.avatar} />
+                <AvatarFallback className="bg-primary/10 text-primary uppercase">
+                  {user?.name?.substring(0, 2)}
+                </AvatarFallback>
+              </Avatar>
+              {!collapsed && (
+                <div className="flex flex-col min-w-0">
+                  <span className="text-sm font-medium truncate leading-none mb-1">{user?.name}</span>
+                  <span className="text-xs text-muted-foreground truncate">{user?.email}</span>
+                </div>
+              )}
+            </div>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              onClick={logout}
+              className="text-destructive hover:text-destructive hover:bg-destructive/10 transition-colors"
+            >
+              <LogOut className="h-4 w-4" />
+              {!collapsed && <span>Sair</span>}
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
     </Sidebar>
   );
 }

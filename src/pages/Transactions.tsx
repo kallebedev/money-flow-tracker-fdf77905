@@ -28,9 +28,9 @@ export default function Transactions() {
   const [search, setSearch] = useState("");
 
   const filtered = transactions.filter((t) => {
-    if (filterMonth && !t.date.startsWith(filterMonth)) return false;
-    if (filterCategory && t.category !== filterCategory) return false;
-    if (filterType && t.type !== filterType) return false;
+    if (filterMonth && filterMonth !== "all" && !t.date.startsWith(filterMonth)) return false;
+    if (filterCategory && filterCategory !== "all" && t.category !== filterCategory) return false;
+    if (filterType && filterType !== "all" && t.type !== filterType) return false;
     if (search && !t.description.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });

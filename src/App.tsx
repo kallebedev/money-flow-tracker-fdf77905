@@ -14,39 +14,43 @@ import Goals from "./pages/Goals";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
+import { ThemeProvider } from "@/components/ThemeProvider";
+
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <FinanceProvider>
-          <BrowserRouter>
-            <Routes>
-              <Route path="/login" element={<Login />} />
-              <Route
-                path="/*"
-                element={
-                  <ProtectedRoute>
-                    <Layout>
-                      <Routes>
-                        <Route path="/" element={<Dashboard />} />
-                        <Route path="/transactions" element={<Transactions />} />
-                        <Route path="/categories" element={<Categories />} />
-                        <Route path="/goals" element={<Goals />} />
-                        <Route path="*" element={<NotFound />} />
-                      </Routes>
-                    </Layout>
-                  </ProtectedRoute>
-                }
-              />
-            </Routes>
-          </BrowserRouter>
-        </FinanceProvider>
-      </TooltipProvider>
-    </AuthProvider>
+    <ThemeProvider defaultTheme="system" enableSystem attribute="class">
+      <AuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <FinanceProvider>
+            <BrowserRouter>
+              <Routes>
+                <Route path="/login" element={<Login />} />
+                <Route
+                  path="/*"
+                  element={
+                    <ProtectedRoute>
+                      <Layout>
+                        <Routes>
+                          <Route path="/" element={<Dashboard />} />
+                          <Route path="/transactions" element={<Transactions />} />
+                          <Route path="/categories" element={<Categories />} />
+                          <Route path="/goals" element={<Goals />} />
+                          <Route path="*" element={<NotFound />} />
+                        </Routes>
+                      </Layout>
+                    </ProtectedRoute>
+                  }
+                />
+              </Routes>
+            </BrowserRouter>
+          </FinanceProvider>
+        </TooltipProvider>
+      </AuthProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 

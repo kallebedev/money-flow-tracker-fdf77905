@@ -14,6 +14,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { ThemeToggle } from "./ThemeToggle";
 
 const items = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
@@ -31,13 +32,16 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon">
       <SidebarContent>
-        <div className="flex items-center gap-2 px-4 py-5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-            <DollarSign className="h-5 w-5 text-primary-foreground" />
+        <div className="flex items-center gap-2 px-4 py-5 justify-between w-full">
+          <div className="flex items-center gap-2">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
+              <DollarSign className="h-5 w-5 text-primary-foreground" />
+            </div>
+            {!collapsed && (
+              <span className="text-lg font-bold text-foreground">MoneyFlow</span>
+            )}
           </div>
-          {!collapsed && (
-            <span className="text-lg font-bold text-foreground">MoneyFlow</span>
-          )}
+          {!collapsed && <ThemeToggle />}
         </div>
         <SidebarGroup>
           <SidebarGroupContent>

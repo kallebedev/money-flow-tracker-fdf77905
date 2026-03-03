@@ -21,7 +21,16 @@ export function useFinanceData() {
         .order("date", { ascending: false });
 
       if (error) throw error;
-      return data as Transaction[];
+
+      // Map database snake_case to frontend camelCase if necessary
+      return (data || []).map(t => ({
+        id: t.id,
+        type: t.type,
+        amount: Number(t.amount),
+        category: t.category_id, // Map category_id to category
+        date: t.date,
+        description: t.description
+      })) as Transaction[];
     },
     enabled: !!user,
   });
@@ -55,7 +64,14 @@ export function useFinanceData() {
         .eq("user_id", user.id);
 
       if (error) throw error;
-      return data as FinancialGoal[];
+
+      return (data || []).map(g => ({
+        id: g.id,
+        name: g.name,
+        targetAmount: Number(g.target_amount),
+        currentAmount: Number(g.current_amount),
+        deadline: g.deadline
+      })) as FinancialGoal[];
     },
     enabled: !!user,
   });
@@ -65,7 +81,14 @@ export function useFinanceData() {
     mutationFn: async (t: Omit<Transaction, "id">) => {
       const { data, error } = await supabase
         .from("transactions")
-        .insert([{ ...t, user_id: user?.id }])
+        .insert([{
+          type: t.type,
+          amount: t.amount,
+          category_id: t.category, // Map category to category_id
+          date: t.date,
+          description: t.description,
+          user_id: user?.id
+        }])
         .select()
         .single();
       if (error) throw error;
@@ -79,9 +102,16 @@ export function useFinanceData() {
 
   const updateTransactionMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<Transaction> }) => {
+      const updateData: any = {};
+      if (data.type) updateData.type = data.type;
+      if (data.amount !== undefined) updateData.amount = data.amount;
+      if (data.category) updateData.category_id = data.category;
+      if (data.date) updateData.date = data.date;
+      if (data.description !== undefined) updateData.description = data.description;
+
       const { error } = await supabase
         .from("transactions")
-        .update(data)
+        .update(updateData)
         .eq("id", id);
       if (error) throw error;
     },
@@ -134,7 +164,13 @@ export function useFinanceData() {
     mutationFn: async (g: Omit<FinancialGoal, "id">) => {
       const { data, error } = await supabase
         .from("goals")
-        .insert([{ ...g, user_id: user?.id }])
+        .insert([{
+          name: g.name,
+          target_amount: g.targetAmount,
+          current_amount: g.currentAmount,
+          deadline: g.deadline,
+          user_id: user?.id
+        }])
         .select()
         .single();
       if (error) throw error;
@@ -148,9 +184,15 @@ export function useFinanceData() {
 
   const updateGoalMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<FinancialGoal> }) => {
+      const updateData: any = {};
+      if (data.name) updateData.name = data.name;
+      if (data.targetAmount !== undefined) updateData.target_amount = data.targetAmount;
+      if (data.currentAmount !== undefined) updateData.current_amount = data.currentAmount;
+      if (data.deadline !== undefined) updateData.deadline = data.deadline;
+
       const { error } = await supabase
         .from("goals")
-        .update(data)
+        .update(updateData)
         .eq("id", id);
       if (error) throw error;
     },

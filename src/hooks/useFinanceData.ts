@@ -35,23 +35,45 @@ export function useFinanceData() {
     enabled: !!user,
   });
 
-  // Categories Query (User + Default)
-  const { data: userCategories = [] } = useQuery({
+  // Categories Query (User + Default seeding)
+  const { data: categories = [] } = useQuery({
     queryKey: ["categories", user?.id],
     queryFn: async () => {
       if (!user) return [];
+
+      // Fetch user's categories
       const { data, error } = await supabase
         .from("categories")
         .select("*")
         .eq("user_id", user.id);
 
       if (error) throw error;
+
+      // Seeding: If no categories found, insert defaults
+      if (!data || data.length === 0) {
+        const seedData = DEFAULT_CATEGORIES.map(c => ({
+          name: c.name,
+          icon: c.icon,
+          color: c.color,
+          user_id: user.id
+        }));
+
+        const { data: seeded, error: seedError } = await supabase
+          .from("categories")
+          .insert(seedData)
+          .select();
+
+        if (seedError) {
+          console.error("Error seeding categories:", seedError);
+          return [];
+        }
+        return seeded as Category[];
+      }
+
       return data as Category[];
     },
     enabled: !!user,
   });
-
-  const categories = useMemo(() => [...DEFAULT_CATEGORIES, ...userCategories], [userCategories]);
 
   // Goals Query
   const { data: goals = [] } = useQuery({
@@ -207,6 +229,42 @@ export function useFinanceData() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["goals"] }),
   });
 
+  const restoreDefaultCategoriesMutation = useMutation({
+    mutationFn: async (selectedCategories?: string[]) => {
+      if (!user) return;
+
+      let toRestore = DEFAULT_CATEGORIES;
+
+      if (selectedCategories) {
+        toRestore = DEFAULT_CATEGORIES.filter(c => selectedCategories.includes(c.name));
+      } else {
+        const { data: existing } = await supabase
+          .from("categories")
+          .select("name")
+          .eq("user_id", user.id);
+
+        const existingNames = new Set((existing || []).map(c => c.name));
+        toRestore = DEFAULT_CATEGORIES.filter(c => !existingNames.has(c.name));
+      }
+
+      if (toRestore.length === 0) return;
+
+      const seedData = toRestore.map(c => ({
+        name: c.name,
+        icon: c.icon,
+        color: c.color,
+        user_id: user.id
+      }));
+
+      const { error } = await supabase.from("categories").insert(seedData);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+      toast.success("Categorias restauradas!");
+    },
+  });
+
   // Computed
   const currentMonth = new Date().toISOString().slice(0, 7);
 
@@ -245,6 +303,7 @@ export function useFinanceData() {
     addGoal: addGoalMutation.mutate,
     updateGoal: (id: string, data: Partial<FinancialGoal>) => updateGoalMutation.mutate({ id, data }),
     deleteGoal: deleteGoalMutation.mutate,
+    restoreDefaultCategories: restoreDefaultCategoriesMutation.mutate,
     monthlyTransactions,
     totalIncome,
     totalExpense,

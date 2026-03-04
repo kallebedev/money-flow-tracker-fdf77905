@@ -3,8 +3,12 @@ import { useFinance } from "@/contexts/FinanceContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, TrendingDown, Wallet, PiggyBank, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
-import { format, parseISO, subMonths } from "date-fns";
+import { format, parseISO, subMonths, isAfter, startOfMonth, isBefore, endOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useState } from "react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const CHART_COLORS = [
   "hsl(142, 72%, 40%)",
@@ -22,11 +26,45 @@ function formatCurrency(v: number) {
 }
 
 export default function Dashboard() {
-  const { transactions, categories, balance, totalIncome, totalExpense, savings, monthlyTransactions } = useFinance();
+  const { transactions, categories, balance } = useFinance();
+  const [range, setRange] = useState("current");
+  const [startDate, setStartDate] = useState(format(subMonths(new Date(), 1), "yyyy-MM-dd"));
+  const [endDate, setEndDate] = useState(format(new Date(), "yyyy-MM-dd"));
+
+  const filteredTransactions = useMemo(() => {
+    const now = new Date();
+    switch (range) {
+      case "current":
+        return transactions.filter(t => t.date.startsWith(format(now, "yyyy-MM")));
+      case "3months":
+        return transactions.filter(t => isAfter(parseISO(t.date), subMonths(startOfMonth(now), 2)));
+      case "6months":
+        return transactions.filter(t => isAfter(parseISO(t.date), subMonths(startOfMonth(now), 5)));
+      case "custom":
+        return transactions.filter(t => {
+          const tDate = parseISO(t.date);
+          return isAfter(tDate, parseISO(startDate)) && isBefore(tDate, endOfDay(parseISO(endDate)));
+        });
+      default:
+        return transactions;
+    }
+  }, [transactions, range, startDate, endDate]);
+
+  const totalIncome = useMemo(
+    () => filteredTransactions.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0),
+    [filteredTransactions]
+  );
+
+  const totalExpense = useMemo(
+    () => filteredTransactions.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0),
+    [filteredTransactions]
+  );
+
+  const savings = totalIncome - totalExpense;
 
   const expenseByCategory = useMemo(() => {
     const map: Record<string, number> = {};
-    monthlyTransactions
+    filteredTransactions
       .filter((t) => t.type === "expense")
       .forEach((t) => {
         map[t.category] = (map[t.category] || 0) + t.amount;
@@ -35,7 +73,7 @@ export default function Dashboard() {
       name: categories.find((c) => c.id === catId)?.name || catId,
       value,
     }));
-  }, [monthlyTransactions, categories]);
+  }, [filteredTransactions, categories]);
 
   const monthlyEvolution = useMemo(() => {
     const months: string[] = [];
@@ -54,20 +92,59 @@ export default function Dashboard() {
     });
   }, [transactions]);
 
-  const lastTransactions = transactions.slice(0, 5);
+  const lastTransactions = filteredTransactions.slice(0, 5);
 
   const cards = [
     { title: "Saldo Total", value: balance, icon: Wallet, trend: balance >= 0 },
-    { title: "Receitas (mês)", value: totalIncome, icon: TrendingUp, trend: true },
     { title: "Despesas (mês)", value: totalExpense, icon: TrendingDown, trend: false },
-    { title: "Economia (mês)", value: savings, icon: PiggyBank, trend: savings >= 0 },
   ];
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <h1 className="text-2xl font-bold">Dashboard</h1>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <h1 className="text-2xl font-bold">Dashboard</h1>
+        <Select value={range} onValueChange={setRange}>
+          <SelectTrigger className="w-full sm:w-[180px]">
+            <SelectValue placeholder="Período" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="current">Mês Atual</SelectItem>
+            <SelectItem value="3months">Últimos 3 Meses</SelectItem>
+            <SelectItem value="6months">Últimos 6 Meses</SelectItem>
+            <SelectItem value="all">Todo o Período</SelectItem>
+            <SelectItem value="custom">Personalizado</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {range === "custom" && (
+        <Card className="p-4 border">
+          <div className="flex flex-wrap items-end gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="start-date" className="text-xs">Data Início</Label>
+              <Input
+                id="start-date"
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full sm:w-auto h-9"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="end-date" className="text-xs">Data Fim</Label>
+              <Input
+                id="end-date"
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-full sm:w-auto h-9"
+              />
+            </div>
+          </div>
+        </Card>
+      )}
+
+      <div className="grid gap-4 sm:grid-cols-2">
         {cards.map((c) => (
           <Card key={c.title} className="finance-card">
             <CardHeader className="flex flex-row items-center justify-between pb-2">

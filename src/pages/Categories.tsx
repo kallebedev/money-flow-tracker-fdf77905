@@ -89,19 +89,22 @@ export default function Categories() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <h1 className="text-2xl font-bold">Categorias</h1>
+    <div className="space-y-6 animate-fade-in pb-10">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground tracking-tight">Categorias</h1>
+          <p className="text-muted-foreground mt-1">Gerencie suas categorias de gastos e receitas.</p>
+        </div>
         <div className="flex gap-2">
           <Dialog open={restoreOpen} onOpenChange={setRestoreOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" onClick={() => setSelectedToRestore(missingDefaults.map(c => c.name))}>
+              <Button variant="outline" onClick={() => setSelectedToRestore(missingDefaults.map(c => c.name))} className="border-border">
                 <RefreshCw className="mr-2 h-4 w-4" />Restaurar Padrões
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md">
+            <DialogContent className="max-w-md bg-popover border-border text-popover-foreground">
               <DialogHeader>
-                <DialogTitle>Restaurar Categorias Padrão</DialogTitle>
+                <DialogTitle className="text-foreground">Restaurar Categorias Padrão</DialogTitle>
               </DialogHeader>
               <div className="py-4 space-y-4">
                 <p className="text-sm text-muted-foreground">
@@ -133,17 +136,24 @@ export default function Categories() {
 
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button onClick={openNew}><Plus className="mr-2 h-4 w-4" />Nova Categoria</Button>
+              <Button onClick={openNew} className="rounded-xl px-5 h-11 transition-all hover:scale-105 active:scale-95 bg-primary text-primary-foreground"><Plus className="mr-2 h-5 w-5" />Nova Categoria</Button>
             </DialogTrigger>
-            <DialogContent>
-              <DialogHeader><DialogTitle>{editId ? "Editar" : "Nova"} Categoria</DialogTitle></DialogHeader>
-              <div className="py-4">
-                <Label>Nome</Label>
-                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Assinaturas" />
+            <DialogContent className="bg-popover border-border text-popover-foreground">
+              <DialogHeader><DialogTitle className="text-foreground">{editId ? "Editar" : "Nova"} Categoria</DialogTitle></DialogHeader>
+              <div className="py-6 space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground font-medium">Nome da Categoria</Label>
+                  <Input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Ex: Assinaturas"
+                    className="bg-background border-border text-foreground h-12"
+                  />
+                </div>
               </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-                <Button onClick={handleSave}>Salvar</Button>
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button variant="ghost" onClick={() => setOpen(false)} className="hover:bg-accent text-foreground">Cancelar</Button>
+                <Button onClick={handleSave} className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 font-bold">Salvar</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -154,15 +164,15 @@ export default function Categories() {
         {categories.map((c) => {
           const count = transactions.filter((t) => t.category === c.id).length;
           return (
-            <Card key={c.id} className="finance-card">
-              <CardContent className="flex items-center justify-between pt-5">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-lg bg-accent flex items-center justify-center">
-                    <Tag className="h-5 w-5 text-accent-foreground" />
+            <Card key={c.id} className="bg-card border border-border/50 rounded-3xl p-2 transition-all hover:bg-accent/30 group shadow-sm hover:shadow-md">
+              <CardContent className="flex items-center justify-between pt-5 pb-5">
+                <div className="flex items-center gap-4">
+                  <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center transition-transform group-hover:scale-110">
+                    <Tag className="h-6 w-6 text-primary" />
                   </div>
                   <div>
-                    <p className="font-medium">{c.name}</p>
-                    <p className="text-xs text-muted-foreground">{count} transação(ões)</p>
+                    <p className="font-bold text-foreground text-lg">{c.name}</p>
+                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-tight">{count} transação(ões)</p>
                   </div>
                 </div>
                 <div className="flex gap-1">

@@ -14,7 +14,6 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ThemeToggle } from "./ThemeToggle";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,16 +37,13 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon">
       <SidebarContent>
-        <div className="flex items-center gap-2 px-4 py-5 justify-between w-full">
-          <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-              <DollarSign className="h-5 w-5 text-primary-foreground" />
-            </div>
-            {!collapsed && (
-              <span className="text-lg font-bold text-foreground">MoneyFlow</span>
-            )}
+        <div className="flex items-center gap-3 px-6 py-8">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
+            <DollarSign className="h-6 w-6" />
           </div>
-          {!collapsed && <ThemeToggle />}
+          {!collapsed && (
+            <span className="text-xl font-bold tracking-tight text-foreground">MoneyFlow</span>
+          )}
         </div>
         <SidebarGroup>
           <SidebarGroupContent>
@@ -58,11 +54,11 @@ export function AppSidebar() {
                     <NavLink
                       to={item.url}
                       end={item.url === "/"}
-                      className="hover:bg-accent/60"
-                      activeClassName="bg-accent text-accent-foreground font-semibold"
+                      className="flex items-center px-6 py-3 transition-colors hover:bg-accent/50 text-sidebar-foreground"
+                      activeClassName="bg-primary text-primary-foreground border-r-4 border-primary font-semibold shadow-inner"
                     >
-                      <item.icon className="mr-2 h-4 w-4" />
-                      {!collapsed && <span>{item.title}</span>}
+                      <item.icon className="mr-3 h-5 w-5" />
+                      {!collapsed && <span className="text-[15px]">{item.title}</span>}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -71,53 +67,49 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="border-t p-2">
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <SidebarMenuButton className="h-12 w-full justify-start gap-3 px-3 py-2">
-                  <Avatar className="h-8 w-8 border shrink-0">
-                    <AvatarImage src={user?.user_metadata?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email}`} />
-                    <AvatarFallback className="bg-primary/10 text-primary uppercase">
-                      {user?.user_metadata?.name?.substring(0, 2) || user?.email?.substring(0, 2)}
-                    </AvatarFallback>
-                  </Avatar>
-                  {!collapsed && (
-                    <div className="flex flex-col min-w-0 text-left">
-                      <span className="text-sm font-medium truncate leading-none mb-1">
-                        {user?.user_metadata?.name || "Usuário"}
-                      </span>
-                      <span className="text-xs text-muted-foreground truncate">{user?.email}</span>
-                    </div>
-                  )}
-                  {!collapsed && <MoreVertical className="ml-auto h-4 w-4 text-muted-foreground" />}
-                </SidebarMenuButton>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[200px]">
-                <DropdownMenuItem asChild>
-                  <Link to="/profile" className="flex items-center gap-2 cursor-pointer w-full">
-                    <User className="h-4 w-4" />
-                    <span>Meu Perfil</span>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/profile" className="flex items-center gap-2 cursor-pointer w-full">
-                    <Settings className="h-4 w-4" />
-                    <span>Configurações</span>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={logout}
-                  className="flex items-center gap-2 cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10"
-                >
-                  <LogOut className="h-4 w-4" />
-                  <span>Sair</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </SidebarMenuItem>
-        </SidebarMenu>
+      <SidebarFooter className="p-4 mt-auto">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <div className="flex items-center gap-3 p-3 rounded-2xl bg-sidebar-accent/50 cursor-pointer hover:bg-sidebar-accent transition-colors border border-sidebar-border">
+              <Avatar className="h-10 w-10 border-2 border-primary/20 shrink-0">
+                <AvatarImage src={user?.user_metadata?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email}`} />
+                <AvatarFallback className="bg-primary/10 text-primary uppercase">
+                  {user?.user_metadata?.name?.substring(0, 2) || user?.email?.substring(0, 2)}
+                </AvatarFallback>
+              </Avatar>
+              {!collapsed && (
+                <div className="flex flex-col min-w-0 flex-1">
+                  <span className="text-[14px] font-semibold text-sidebar-foreground truncate leading-tight">
+                    {user?.user_metadata?.name || "Usuário"}
+                  </span>
+                  <span className="text-[12px] text-muted-foreground truncate leading-tight">{user?.email}</span>
+                </div>
+              )}
+              {!collapsed && <MoreVertical className="h-4 w-4 text-muted-foreground" />}
+            </div>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" side="right" className="w-[200px] bg-popover border-border text-popover-foreground">
+            <DropdownMenuItem asChild>
+              <Link to="/profile" className="flex items-center gap-2 cursor-pointer w-full py-2.5">
+                <User className="h-4 w-4" />
+                <span>Meu Perfil</span>
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link to="/profile" className="flex items-center gap-2 cursor-pointer w-full py-2.5">
+                <Settings className="h-4 w-4" />
+                <span>Configurações</span>
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={logout}
+              className="flex items-center gap-2 cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10 py-2.5"
+            >
+              <LogOut className="h-4 w-4" />
+              <span>Sair</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </SidebarFooter>
     </Sidebar>
   );

@@ -10,6 +10,7 @@ import { User, Mail } from "lucide-react";
 import { ImageUpload } from "@/components/ImageUpload";
 import { supabase } from "@/lib/supabase";
 import confetti from "canvas-confetti";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export default function Profile() {
     const { user, updateProfile } = useAuth();
@@ -154,6 +155,22 @@ export default function Profile() {
                     </CardContent>
                 </Card>
             </div>
+
+            <Card className="finance-card border-primary/10">
+                <CardHeader>
+                    <CardTitle>Aparência</CardTitle>
+                    <CardDescription>Personalize o visual da aplicação.</CardDescription>
+                </CardHeader>
+                <CardContent className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                        <Label>Tema do Sistema</Label>
+                        <p className="text-xs text-muted-foreground">Alternar entre modo claro e escuro.</p>
+                    </div>
+                    <div className="h-10 w-10 flex items-center justify-center rounded-xl bg-accent border border-border">
+                        <ThemeToggle />
+                    </div>
+                </CardContent>
+            </Card>
 
             <Card className="border-destructive/20 bg-destructive/5 finance-card">
                 <CardHeader>

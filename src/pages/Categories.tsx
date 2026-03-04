@@ -30,6 +30,7 @@ export default function Categories() {
   const [selectedToRestore, setSelectedToRestore] = useState<string[]>([]);
   const [editId, setEditId] = useState<string | null>(null);
   const [name, setName] = useState("");
+  const [budget, setBudget] = useState("");
 
   const missingDefaults = DEFAULT_CATEGORIES.filter(
     (df) => !categories.some((c) => c.name === df.name)
@@ -56,23 +57,30 @@ export default function Categories() {
   function openNew() {
     setEditId(null);
     setName("");
+    setBudget("");
     setOpen(true);
   }
 
-  function openEdit(id: string, n: string) {
+  function openEdit(id: string, n: string, b?: number) {
     setEditId(id);
     setName(n);
+    setBudget(b?.toString() || "");
     setOpen(true);
   }
 
   function handleSave() {
     if (!name.trim()) { toast.error("Nome é obrigatório"); return; }
+    const budgetNum = budget ? parseFloat(budget) : undefined;
     if (editId) {
-      updateCategory(editId, { name: name.trim() });
+      updateCategory(editId, { name: name.trim(), monthlyBudget: budgetNum });
       toast.success("Categoria atualizada!");
     } else {
-      addCategory({ name: name.trim(), icon: "Tag", color: COLORS[categories.length % COLORS.length] });
-      toast.success("Categoria criada!");
+      addCategory({
+        name: name.trim(),
+        icon: "Tag",
+        color: COLORS[categories.length % COLORS.length],
+        monthlyBudget: budgetNum
+      });
     }
     setOpen(false);
   }
@@ -150,6 +158,19 @@ export default function Categories() {
                     className="bg-background border-border text-foreground h-12"
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground font-medium">Orçamento Mensal (R$)</Label>
+                  <Input
+                    type="number"
+                    value={budget}
+                    onChange={(e) => setBudget(e.target.value)}
+                    placeholder="Ex: 1000"
+                    className="bg-background border-border text-foreground h-12"
+                  />
+                  <p className="text-[10px] text-muted-foreground italic">
+                    Este valor será usado pela IA para analisar seus gastos.
+                  </p>
+                </div>
               </div>
               <DialogFooter className="gap-2 sm:gap-0">
                 <Button variant="ghost" onClick={() => setOpen(false)} className="hover:bg-accent text-foreground">Cancelar</Button>
@@ -172,11 +193,18 @@ export default function Categories() {
                   </div>
                   <div>
                     <p className="font-bold text-foreground text-lg">{c.name}</p>
-                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-tight">{count} transação(ões)</p>
+                    <div className="flex flex-col">
+                      <p className="text-xs text-muted-foreground font-medium uppercase tracking-tight">{count} transação(ões)</p>
+                      {c.monthlyBudget && (
+                        <p className="text-[10px] text-primary font-bold uppercase tracking-widest mt-0.5">
+                          Limite: R$ {c.monthlyBudget.toFixed(2)}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <div className="flex gap-1">
-                  <Button variant="ghost" size="icon" onClick={() => openEdit(c.id, c.name)}><Pencil className="h-4 w-4" /></Button>
+                  <Button variant="ghost" size="icon" onClick={() => openEdit(c.id, c.name, c.monthlyBudget)}><Pencil className="h-4 w-4" /></Button>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-destructive" /></Button>

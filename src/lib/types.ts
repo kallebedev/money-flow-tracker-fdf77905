@@ -14,6 +14,12 @@ export interface Category {
   name: string;
   icon: string; // lucide icon name
   color: string; // tailwind color token
+  monthlyBudget?: number; // Manual budget limit
+}
+
+export interface UserProfile {
+  id: string;
+  monthlySalary: number;
 }
 
 export interface FinancialGoal {

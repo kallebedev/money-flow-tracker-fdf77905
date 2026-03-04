@@ -2,12 +2,27 @@ import { useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
-import { Transaction, Category, FinancialGoal, DEFAULT_CATEGORIES } from "@/lib/types";
+import { Transaction, Category, FinancialGoal, DEFAULT_CATEGORIES, UserProfile } from "@/lib/types";
 import { toast } from "sonner";
+import { useState, useEffect } from "react";
 
 export function useFinanceData() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const [monthlySalary, setMonthlySalary] = useState<number>(0);
+
+  useEffect(() => {
+    if (user?.id) {
+      const saved = localStorage.getItem(`monthly_salary_${user.id}`);
+      if (saved) setMonthlySalary(Number(saved));
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (user?.id) {
+      localStorage.setItem(`monthly_salary_${user.id}`, monthlySalary.toString());
+    }
+  }, [monthlySalary, user?.id]);
 
   // Transactions Query
   const { data: transactions = [] } = useQuery({
@@ -70,7 +85,13 @@ export function useFinanceData() {
         return seeded as Category[];
       }
 
-      return data as Category[];
+      return (data || []).map(c => ({
+        id: c.id,
+        name: c.name,
+        icon: c.icon,
+        color: c.color,
+        monthlyBudget: c.monthly_budget ? Number(c.monthly_budget) : undefined
+      })) as Category[];
     },
     enabled: !!user,
   });
@@ -153,24 +174,47 @@ export function useFinanceData() {
     mutationFn: async (c: Omit<Category, "id">) => {
       const { data, error } = await supabase
         .from("categories")
-        .insert([{ ...c, user_id: user?.id }])
+        .insert([{
+          name: c.name,
+          icon: c.icon,
+          color: c.color,
+          monthly_budget: c.monthlyBudget,
+          user_id: user?.id
+        }])
         .select()
         .single();
       if (error) throw error;
       return data;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["categories"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+      toast.success("Categoria criada!");
+    },
+    onError: (error: any) => {
+      console.error("Error creating category:", error);
+      toast.error("Erro ao criar categoria. Verifique se a coluna 'monthly_budget' existe no seu banco de dados Supabase.");
+    }
   });
 
   const updateCategoryMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<Category> }) => {
+      const updateData: any = {};
+      if (data.name) updateData.name = data.name;
+      if (data.icon) updateData.icon = data.icon;
+      if (data.color) updateData.color = data.color;
+      if (data.monthlyBudget !== undefined) updateData.monthly_budget = data.monthlyBudget;
+
       const { error } = await supabase
         .from("categories")
-        .update(data)
+        .update(updateData)
         .eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["categories"] }),
+    onError: (error: any) => {
+      console.error("Error updating category:", error);
+      toast.error("Erro ao atualizar categoria. Verifique se a coluna 'monthly_budget' existe no seu banco de dados Supabase.");
+    }
   });
 
   const deleteCategoryMutation = useMutation({
@@ -310,6 +354,8 @@ export function useFinanceData() {
     balance,
     savings,
     currentMonth,
+    monthlySalary,
+    setMonthlySalary,
     isLoading: addTransactionMutation.isPending || updateTransactionMutation.isPending || deleteTransactionMutation.isPending,
   };
 }

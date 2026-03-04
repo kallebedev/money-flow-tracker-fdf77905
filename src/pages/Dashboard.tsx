@@ -2,7 +2,8 @@ import { useMemo } from "react";
 import { useFinance } from "@/contexts/FinanceContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, TrendingDown, Wallet, PiggyBank, ArrowUpRight, ArrowDownRight, Sun, Moon, Plus, MoreHorizontal } from "lucide-react";
-import { PieChart, Pie, Cell, ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
+import { cn } from "@/lib/utils";
 import { format, parseISO, subMonths, isAfter, startOfMonth, isBefore, endOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useState } from "react";
@@ -13,6 +14,10 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { TransactionType } from "@/lib/types";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
+import { SpendingAnalysis, HealthScoreCard, AITipCard } from "@/components/SpendingAnalysis";
+import { useSpendingAnalysis } from "@/hooks/useSpendingAnalysis";
+import { AIBudgetPlanner } from "@/components/AIBudgetPlanner";
 
 const CHART_COLORS = [
   "hsl(142, 72%, 40%)",
@@ -32,7 +37,9 @@ function formatCurrency(v: number) {
 const emptyForm = { type: "expense" as TransactionType, amount: "", category: "", date: new Date().toISOString().slice(0, 10), description: "" };
 
 export default function Dashboard() {
-  const { transactions, categories, balance, addTransaction } = useFinance();
+  const { balance, transactions, categories, addTransaction } = useFinance();
+  const navigate = useNavigate();
+  const { healthScore } = useSpendingAnalysis();
   const [range, setRange] = useState("current");
   const [startDate, setStartDate] = useState(format(subMonths(new Date(), 1), "yyyy-MM-dd"));
   const [endDate, setEndDate] = useState(format(new Date(), "yyyy-MM-dd"));
@@ -145,6 +152,7 @@ export default function Dashboard() {
               <SelectItem value="custom">Personalizado</SelectItem>
             </SelectContent>
           </Select>
+          <AIBudgetPlanner />
         </div>
       </div>
 
@@ -175,51 +183,87 @@ export default function Dashboard() {
         </Card>
       )}
 
-      <div className="grid gap-6 sm:grid-cols-2">
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {/* Card Saldo Total */}
-        <Card className="bg-card border-none rounded-3xl p-2 relative overflow-hidden group shadow-sm transition-shadow hover:shadow-md">
-          <div className="absolute right-0 top-0 w-24 h-24 bg-primary/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
-          <CardContent className="pt-6 relative">
-            <div className="flex justify-between items-start mb-6">
-              <div className="h-12 w-12 rounded-2xl bg-primary/20 flex items-center justify-center">
-                <Wallet className="h-6 w-6 text-primary" />
+        <Card className="bg-primary/5 border border-primary/10 rounded-[32px] p-2 relative overflow-hidden group shadow-xl shadow-primary/5 transition-all duration-500 hover:shadow-primary/10 hover:-translate-y-1">
+          <div className="absolute -right-4 -top-4 w-28 h-28 bg-primary/20 rounded-full blur-3xl transition-all duration-700 group-hover:scale-150 group-hover:opacity-40" />
+          <CardContent className="pt-4 pb-3 relative z-10 flex flex-col">
+            <div className="flex justify-between items-start mb-4">
+              <div className="h-12 w-12 rounded-2xl bg-primary/20 flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform duration-500 text-primary">
+                <Wallet className="h-6 w-6" />
               </div>
-              <span className="text-[12px] font-bold text-primary bg-primary/10 px-2.5 py-1 rounded-full">+12.5%</span>
+              <div className="flex flex-col items-end">
+                <span className="text-[10px] font-black uppercase tracking-widest text-primary/60 mb-0.5">Tendência</span>
+                <span className="text-[11px] font-black text-emerald-500 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20 shadow-sm">+12.5%</span>
+              </div>
             </div>
-            <p className="text-sm font-medium text-muted-foreground mb-1">Saldo Total</p>
-            <h3 className="text-3xl font-bold text-foreground tracking-tight">{formatCurrency(balance)}</h3>
+            <div className="space-y-0.5">
+              <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider opacity-80">Saldo Total</p>
+              <h3 className="text-3xl font-black text-foreground tracking-tighter group-hover:scale-[1.02] transition-transform origin-left">
+                {formatCurrency(balance)}
+              </h3>
+            </div>
+            <div className="mt-4 pt-4 flex items-center justify-between text-[9px] font-bold uppercase tracking-tight text-muted-foreground border-t border-primary/10">
+              <span>Atualizado agora</span>
+              <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+            </div>
           </CardContent>
         </Card>
 
         {/* Card Despesas */}
-        <Card className="bg-card border-none rounded-3xl p-2 relative overflow-hidden group shadow-sm transition-shadow hover:shadow-md">
-          <div className="absolute right-0 top-0 w-24 h-24 bg-destructive/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
-          <CardContent className="pt-6 relative">
-            <div className="flex justify-between items-start mb-6">
-              <div className="h-12 w-12 rounded-2xl bg-destructive/20 flex items-center justify-center">
-                <TrendingDown className="h-6 w-6 text-destructive" />
+        <Card className="bg-destructive/5 border border-destructive/10 rounded-[32px] p-2 relative overflow-hidden group shadow-xl shadow-destructive/5 transition-all duration-500 hover:shadow-destructive/10 hover:-translate-y-1">
+          <div className="absolute -right-4 -top-4 w-28 h-28 bg-destructive/20 rounded-full blur-3xl transition-all duration-700 group-hover:scale-150 group-hover:opacity-40" />
+          <CardContent className="pt-4 pb-3 relative z-10 flex flex-col">
+            <div className="flex justify-between items-start mb-4">
+              <div className="h-12 w-12 rounded-2xl bg-destructive/20 flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform duration-500 text-destructive">
+                <TrendingDown className="h-6 w-6" />
               </div>
-              <span className="text-[12px] font-bold text-destructive bg-destructive/10 px-2.5 py-1 rounded-full">-3.2%</span>
+              <div className="flex flex-col items-end">
+                <span className="text-[10px] font-black uppercase tracking-widest text-destructive/60 mb-0.5">Impacto</span>
+                <span className="text-[11px] font-black text-destructive bg-destructive/10 px-2.5 py-0.5 rounded-full border border-destructive/20 shadow-sm">-3.2%</span>
+              </div>
             </div>
-            <p className="text-sm font-medium text-muted-foreground mb-1">Despesas (mês)</p>
-            <h3 className="text-3xl font-bold text-foreground tracking-tight">{formatCurrency(totalExpense)}</h3>
+            <div className="space-y-0.5">
+              <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider opacity-80">Despesas (mês)</p>
+              <h3 className="text-3xl font-black text-foreground tracking-tighter group-hover:scale-[1.02] transition-transform origin-left">
+                {formatCurrency(totalExpense)}
+              </h3>
+            </div>
+            <div className="mt-4 pt-4 flex items-center justify-between text-[9px] font-bold uppercase tracking-tight text-muted-foreground border-t border-destructive/10">
+              <span>Nível de gastos</span>
+              <div className="flex gap-1.5">
+                <div className="h-2.5 w-1.5 rounded-full bg-destructive shadow-[0_0_8px_rgba(239,68,68,0.4)]" />
+                <div className="h-2.5 w-1.5 rounded-full bg-destructive/20" />
+                <div className="h-2.5 w-1.5 rounded-full bg-destructive/20" />
+              </div>
+            </div>
           </CardContent>
         </Card>
+
+        {/* Relocated Cards */}
+        <div className="h-full">
+          <HealthScoreCard score={healthScore} />
+        </div>
+        <div className="h-full">
+          <AITipCard />
+        </div>
       </div>
+
+      <SpendingAnalysis />
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Pie chart */}
-        <Card className="bg-card border-none rounded-3xl overflow-hidden shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-lg font-bold text-foreground tracking-tight">Despesas por Categoria</CardTitle>
-            <Button variant="ghost" size="icon" className="text-muted-foreground"><MoreHorizontal className="h-4 w-4" /></Button>
+        <Card className="bg-card/30 backdrop-blur-sm border border-border/10 rounded-[32px] overflow-hidden shadow-2xl shadow-black/5">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 border-b border-border/5">
+            <CardTitle className="text-lg font-black text-foreground tracking-tight uppercase">Despesas por Categoria</CardTitle>
+            <Button variant="ghost" size="icon" className="text-muted-foreground hover:bg-primary/10 rounded-xl"><MoreHorizontal className="h-4 w-4" /></Button>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             {expenseByCategory.length === 0 ? (
               <p className="text-muted-foreground text-sm text-center py-12">Nenhuma despesa este mês</p>
             ) : (
-              <div className="flex flex-col md:flex-row items-center gap-8 py-4">
-                <div className="relative h-[220px] w-[220px] shrink-0">
+              <div className="flex flex-col md:flex-row items-center gap-10 py-2">
+                <div className="relative h-[240px] w-[240px] shrink-0 group">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
@@ -228,136 +272,190 @@ export default function Dashboard() {
                         nameKey="name"
                         cx="50%"
                         cy="50%"
-                        innerRadius={65}
-                        outerRadius={95}
-                        paddingAngle={4}
+                        innerRadius={75}
+                        outerRadius={105}
+                        paddingAngle={6}
                         stroke="none"
+                        cornerRadius={8}
                       >
                         {expenseByCategory.map((_, i) => (
-                          <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                          <Cell
+                            key={i}
+                            fill={CHART_COLORS[i % CHART_COLORS.length]}
+                            className="hover:opacity-80 transition-opacity duration-300"
+                          />
                         ))}
                       </Pie>
                       <Tooltip
                         contentStyle={{
-                          backgroundColor: 'hsl(var(--popover))',
-                          border: '1px solid hsl(var(--border))',
-                          borderRadius: '12px'
+                          backgroundColor: 'rgba(23, 23, 23, 0.9)',
+                          backdropFilter: 'blur(12px)',
+                          border: '1px solid rgba(255, 255, 255, 0.1)',
+                          borderRadius: '16px',
+                          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
                         }}
-                        itemStyle={{ color: 'hsl(var(--foreground))' }}
+                        itemStyle={{ color: '#fff', fontSize: '11px', fontWeight: 'bold' }}
                         formatter={(v: number) => formatCurrency(v)}
                       />
                     </PieChart>
                   </ResponsiveContainer>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-xl font-bold text-foreground">{formatCurrency(totalExpense)}</span>
-                    <span className="text-[10px] text-muted-foreground uppercase tracking-widest">Total</span>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <span className="text-sm font-black text-muted-foreground uppercase tracking-widest leading-none mb-1 opacity-60">Total</span>
+                    <span className="text-2xl font-black text-foreground tracking-tighter group-hover:scale-110 transition-transform duration-500">{formatCurrency(totalExpense)}</span>
                   </div>
                 </div>
-                <div className="flex-1 space-y-3 w-full">
-                  {expenseByCategory.map((e, i) => (
-                    <div key={e.name} className="flex items-center justify-between">
+                <div className="flex-1 space-y-4 w-full pr-4">
+                  {expenseByCategory.slice(0, 5).map((e, i) => (
+                    <div key={e.name} className="flex items-center justify-between group/item cursor-default">
                       <div className="flex items-center gap-3">
-                        <span className="h-3 w-3 rounded-full" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
-                        <span className="text-sm font-medium text-foreground">{e.name}</span>
+                        <div className="h-3 w-3 rounded-full shadow-sm group-hover/item:scale-125 transition-transform" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
+                        <span className="text-xs font-bold text-foreground/80 group-hover/item:text-foreground transition-colors">{e.name}</span>
                       </div>
-                      <span className="text-sm font-bold text-foreground">{formatCurrency(e.value)}</span>
+                      <div className="flex flex-col items-end">
+                        <span className="text-sm font-black text-foreground">{formatCurrency(e.value)}</span>
+                        <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-tighter">
+                          {((e.value / totalExpense) * 100).toFixed(0)}% do total
+                        </span>
+                      </div>
                     </div>
                   ))}
+                  {expenseByCategory.length > 5 && (
+                    <p className="text-[10px] text-center text-muted-foreground font-bold uppercase tracking-widest pt-2 opacity-50">+ {expenseByCategory.length - 5} outras categorias</p>
+                  )}
                 </div>
               </div>
             )}
           </CardContent>
         </Card>
 
-        {/* Line chart */}
-        <Card className="bg-card border-none rounded-3xl overflow-hidden shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-lg font-bold text-foreground tracking-tight">Evolução Mensal</CardTitle>
-            <div className="flex items-center gap-4 text-[12px]">
-              <div className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-primary" /> <span className="text-muted-foreground">Receitas</span></div>
-              <div className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-destructive" /> <span className="text-muted-foreground">Despesas</span></div>
+        {/* Area chart */}
+        <Card className="bg-card/30 backdrop-blur-sm border border-border/10 rounded-[32px] overflow-hidden shadow-2xl shadow-black/5">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 border-b border-border/5">
+            <CardTitle className="text-lg font-black text-foreground tracking-tight uppercase">Evolução Mensal</CardTitle>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-4 rounded-full bg-primary" />
+                <span className="text-[10px] font-black uppercase text-muted-foreground tracking-wider leading-none">Receitas</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-4 rounded-full bg-destructive" />
+                <span className="text-[10px] font-black uppercase text-muted-foreground tracking-wider leading-none">Despesas</span>
+              </div>
             </div>
           </CardHeader>
-          <CardContent className="pt-4">
+          <CardContent className="pt-8">
             <ResponsiveContainer width="100%" height={260}>
-              <LineChart data={monthlyEvolution}>
+              <AreaChart data={monthlyEvolution}>
                 <defs>
-                  <linearGradient id="colorInc" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.1} />
+                  <linearGradient id="colorReceitas" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
                     <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
                   </linearGradient>
+                  <linearGradient id="colorDespesas" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="hsl(var(--destructive))" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="hsl(var(--destructive))" stopOpacity={0} />
+                  </linearGradient>
                 </defs>
-                <CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeDasharray="3 3" opacity={0.5} />
+                <CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeDasharray="3 3" opacity={0.1} />
                 <XAxis
                   dataKey="month"
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
-                  dy={10}
+                  tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))', fontWeight: 'bold' }}
+                  dy={15}
+                  textAnchor="middle"
                 />
                 <YAxis hide />
                 <Tooltip
+                  cursor={{ stroke: 'hsl(var(--primary))', strokeWidth: 1, strokeDasharray: '4 4' }}
                   contentStyle={{
-                    backgroundColor: 'hsl(var(--popover))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '12px'
+                    backgroundColor: 'rgba(23, 23, 23, 0.9)',
+                    backdropFilter: 'blur(12px)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    borderRadius: '16px',
+                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
                   }}
-                  itemStyle={{ fontSize: '12px', color: 'hsl(var(--foreground))' }}
+                  itemStyle={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase' }}
                 />
-                <Line
+                <Area
                   type="monotone"
                   dataKey="receitas"
                   stroke="hsl(var(--primary))"
                   strokeWidth={4}
-                  dot={false}
-                  activeDot={{ r: 6, strokeWidth: 0 }}
+                  fillOpacity={1}
+                  fill="url(#colorReceitas)"
+                  activeDot={{ r: 6, stroke: 'hsl(var(--background))', strokeWidth: 2 }}
                 />
-                <Line
+                <Area
                   type="monotone"
                   dataKey="despesas"
                   stroke="hsl(var(--destructive))"
                   strokeWidth={4}
-                  dot={false}
-                  activeDot={{ r: 6, strokeWidth: 0 }}
+                  fillOpacity={1}
+                  fill="url(#colorDespesas)"
+                  activeDot={{ r: 6, stroke: 'hsl(var(--background))', strokeWidth: 2 }}
                 />
-              </LineChart>
+              </AreaChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
       </div>
 
       {/* Last transactions */}
-      <Card className="bg-card border-none rounded-3xl overflow-hidden shadow-sm">
-        <CardHeader className="flex flex-row items-center justify-between border-b border-border/50">
-          <CardTitle className="text-lg font-bold text-foreground tracking-tight">Últimas Transações</CardTitle>
-          <Button variant="link" className="text-primary font-bold">Ver todas</Button>
+      <Card className="bg-card/20 backdrop-blur-sm border border-border/10 rounded-[32px] overflow-hidden shadow-2xl shadow-black/5">
+        <CardHeader className="flex flex-row items-center justify-between border-b border-border/5 py-6">
+          <CardTitle className="text-lg font-black text-foreground tracking-tight uppercase">Últimas Transações</CardTitle>
+          <Button
+            variant="outline"
+            className="text-[10px] font-black uppercase tracking-widest border-primary/20 text-primary hover:bg-primary/10 rounded-full h-8 px-6"
+            onClick={() => navigate("/transactions")}
+          >
+            Ver todas
+          </Button>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-4">
           {lastTransactions.length === 0 ? (
-            <p className="text-muted-foreground text-sm text-center py-8">Nenhuma transação registrada</p>
+            <p className="text-muted-foreground text-sm text-center py-12">Nenhuma transação registrada</p>
           ) : (
-            <div className="space-y-1">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               {lastTransactions.map((t) => {
                 const cat = categories.find((c) => c.id === t.category);
                 const isIncome = t.type === "income";
                 return (
-                  <div key={t.id} className="flex items-center justify-between p-4 rounded-2xl hover:bg-accent/50 transition-colors group">
-                    <div className="flex items-center gap-4">
-                      <div className={`h-12 w-12 rounded-2xl flex items-center justify-center ${isIncome ? "bg-primary/10" : "bg-destructive/10"}`}>
-                        <PiggyBank className={`h-6 w-6 ${isIncome ? "text-primary" : "text-destructive"}`} />
+                  <div key={t.id} className="flex items-center justify-between p-4 rounded-[24px] hover:bg-primary/5 border border-transparent hover:border-primary/10 transition-all duration-300 group cursor-default">
+                    <div className="flex items-center gap-5">
+                      <div className={cn(
+                        "h-14 w-14 rounded-2xl flex items-center justify-center shadow-inner transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3",
+                        isIncome ? "bg-emerald-500/10 text-emerald-500" : "bg-destructive/10 text-destructive"
+                      )}>
+                        <div className="relative">
+                          {isIncome ? <PiggyBank className="h-7 w-7" /> : <TrendingDown className="h-7 w-7" />}
+                          <div className={cn(
+                            "absolute -top-1 -right-1 h-2 w-2 rounded-full border-2 border-background",
+                            isIncome ? "bg-emerald-500" : "bg-destructive"
+                          )} />
+                        </div>
                       </div>
                       <div>
-                        <p className="text-sm font-bold text-foreground">{t.description}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {cat?.name || t.category} • {format(parseISO(t.date), "dd MMM yyyy", { locale: ptBR })}
-                        </p>
+                        <p className="text-sm font-black text-foreground tracking-tight group-hover:text-primary transition-colors">{t.description}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground bg-muted/30 px-2 py-0.5 rounded-md">
+                            {cat?.name || t.category}
+                          </span>
+                          <span className="text-[10px] font-bold text-muted-foreground/60 italic">
+                            {format(parseISO(t.date), "dd MMM, HH:mm", { locale: ptBR })}
+                          </span>
+                        </div>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className={`font-bold text-base ${isIncome ? "text-primary" : "text-destructive"}`}>
+                      <p className={cn(
+                        "font-black text-lg tracking-tighter group-hover:scale-105 transition-transform origin-right",
+                        isIncome ? "text-emerald-500" : "text-destructive"
+                      )}>
                         {isIncome ? "+" : "-"}{formatCurrency(t.amount)}
                       </p>
-                      <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tight opacity-70">Cartão de Crédito</p>
+                      <span className="text-[10px] font-black text-muted-foreground/40 uppercase tracking-widest">Confirmado</span>
                     </div>
                   </div>
                 );

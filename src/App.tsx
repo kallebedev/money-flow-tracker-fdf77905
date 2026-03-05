@@ -13,6 +13,7 @@ import Categories from "./pages/Categories";
 import Goals from "./pages/Goals";
 import Profile from "./pages/Profile";
 import Login from "./pages/Login";
+import LandingPage from "./pages/LandingPage";
 import NotFound from "./pages/NotFound";
 
 import { ThemeProvider } from "@/components/ThemeProvider";
@@ -29,6 +30,7 @@ const App = () => (
           <FinanceProvider>
             <BrowserRouter>
               <Routes>
+                <Route path="/" element={<LandingPage />} />
                 <Route path="/login" element={<Login />} />
                 <Route
                   path="/*"
@@ -36,7 +38,7 @@ const App = () => (
                     <ProtectedRoute>
                       <Layout>
                         <Routes>
-                          <Route path="/" element={<Dashboard />} />
+                          <Route path="/dashboard" element={<Dashboard />} />
                           <Route path="/transactions" element={<Transactions />} />
                           <Route path="/categories" element={<Categories />} />
                           <Route path="/goals" element={<Goals />} />

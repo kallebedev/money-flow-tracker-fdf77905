@@ -18,7 +18,7 @@ const Login = () => {
     const navigate = useNavigate();
     const location = useLocation();
 
-    const from = location.state?.from?.pathname || "/";
+    const from = location.state?.from?.pathname || "/dashboard";
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -55,97 +55,98 @@ const Login = () => {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-4 transition-colors duration-500">
+        <div className="min-h-screen flex items-center justify-center bg-[#050505] p-6 selection:bg-primary/30">
+            {/* Background Decorative Elements */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl animate-pulse"></div>
-                <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse delay-700"></div>
+                <div className="absolute top-0 right-0 -mr-40 -mt-40 h-[600px] w-[600px] rounded-full bg-primary/10 blur-[120px]" />
+                <div className="absolute bottom-0 left-0 -ml-40 -mb-40 h-[600px] w-[600px] rounded-full bg-blue-500/10 blur-[120px]" />
             </div>
 
-            <Card className="w-full max-w-md border-none shadow-2xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl animate-in fade-in zoom-in duration-500">
-                <CardHeader className="space-y-2 text-center">
-                    <div className="flex justify-center mb-4">
-                        <div className="p-3 bg-primary rounded-2xl shadow-lg animate-bounce">
-                            <Wallet className="w-8 h-8 text-primary-foreground" />
-                        </div>
+            <div className="w-full max-w-sm relative z-10 animate-in fade-in zoom-in-95 duration-700">
+                <div className="text-center mb-10">
+                    <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-primary shadow-[0_0_30px_rgba(16,185,129,0.3)] mb-6 animate-pulse">
+                        <Wallet className="w-8 h-8 text-[#050505]" />
                     </div>
-                    <CardTitle className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-50">
-                        MoneyFlow
-                    </CardTitle>
-                    <CardDescription className="text-slate-500 dark:text-slate-400 text-lg">
+                    <h1 className="text-4xl font-black text-white italic tracking-tighter mb-2">MONEYFLOW</h1>
+                    <p className="text-muted-foreground text-sm font-medium tracking-wide uppercase opacity-60">
                         {isLogin ? "Sua jornada financeira começa aqui" : "Crie sua conta e comece a economizar"}
-                    </CardDescription>
-                </CardHeader>
-                <form onSubmit={handleSubmit}>
-                    <CardContent className="space-y-4 pt-4">
+                    </p>
+                </div>
+
+                <div className="bg-white/[0.02] border border-white/10 backdrop-blur-3xl rounded-[32px] p-8 shadow-2xl">
+                    <form onSubmit={handleSubmit} className="space-y-5">
                         {!isLogin && (
-                            <div className="space-y-2 group">
-                                <Label htmlFor="name" className="group-focus-within:text-primary transition-colors">Nome</Label>
+                            <div className="space-y-1.5 group">
+                                <Label htmlFor="name" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1 group-focus-within:text-primary transition-colors">Nome</Label>
                                 <Input
                                     id="name"
                                     type="text"
-                                    placeholder="Seu nome"
+                                    placeholder="SEU NOME"
                                     value={name}
                                     onChange={(e) => setName(e.target.value)}
-                                    className="bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 focus-visible:ring-primary transition-all duration-300"
+                                    className="h-12 bg-white/5 border-white/5 focus-visible:ring-primary focus-visible:border-primary/50 transition-all font-bold text-sm text-white rounded-xl placeholder:text-white/20"
                                     required
                                 />
                             </div>
                         )}
-                        <div className="space-y-2 group">
-                            <Label htmlFor="email" className="group-focus-within:text-primary transition-colors">E-mail</Label>
+                        <div className="space-y-1.5 group">
+                            <Label htmlFor="email" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1 group-focus-within:text-primary transition-colors">E-mail</Label>
                             <Input
                                 id="email"
                                 type="email"
-                                placeholder="exemplo@email.com"
+                                placeholder="EXEMPLO@EMAIL.COM"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                className="bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 focus-visible:ring-primary transition-all duration-300"
+                                className="h-12 bg-white/5 border-white/5 focus-visible:ring-primary focus-visible:border-primary/50 transition-all font-bold text-sm text-white rounded-xl placeholder:text-white/20"
                                 required
                             />
                         </div>
-                        <div className="space-y-2 group">
-                            <Label htmlFor="password">Senha</Label>
+                        <div className="space-y-1.5 group">
+                            <Label htmlFor="password" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1 group-focus-within:text-primary transition-colors">Senha</Label>
                             <Input
                                 id="password"
                                 type="password"
+                                placeholder="••••••••"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                className="bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 focus-visible:ring-primary transition-all duration-300"
+                                className="h-12 bg-white/5 border-white/5 focus-visible:ring-primary focus-visible:border-primary/50 transition-all font-bold text-sm text-white rounded-xl placeholder:text-white/20"
                                 required
                             />
                         </div>
-                    </CardContent>
-                    <CardFooter className="flex flex-col space-y-4 pt-6 pb-8">
+
                         <Button
                             type="submit"
-                            className="w-full h-11 text-lg font-medium shadow-lg hover:shadow-primary/25 transition-all duration-300 transform hover:-translate-y-0.5"
+                            className="w-full h-14 bg-primary hover:bg-primary/90 text-[#050505] font-black text-sm uppercase tracking-widest rounded-xl shadow-xl shadow-primary/20 transition-all active:scale-[0.98] group mt-4"
                             disabled={isLoading}
                         >
                             {isLoading ? (
                                 <div className="flex items-center gap-2">
-                                    <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin"></div>
-                                    {isLogin ? "Acessando..." : "Criando..."}
+                                    <div className="w-4 h-4 border-2 border-[#050505] border-t-transparent rounded-full animate-spin"></div>
+                                    {isLogin ? "ACESSANDO..." : "CRIANDO..."}
                                 </div>
                             ) : (
                                 <div className="flex items-center gap-2">
-                                    {isLogin ? <LogIn className="w-5 h-5" /> : <UserPlus className="w-5 h-5" />}
-                                    {isLogin ? "Acessar conta" : "Criar conta"}
+                                    {isLogin ? "Acessar conta" : "Criar minha conta"}
+                                    <LogIn className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                                 </div>
                             )}
                         </Button>
-                        <div className="text-sm text-center text-slate-500 dark:text-slate-400">
+                    </form>
+
+                    <div className="mt-8 text-center">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
                             {isLogin ? "Não tem uma conta?" : "Já tem uma conta?"}{" "}
                             <button
                                 type="button"
                                 onClick={() => setIsLogin(!isLogin)}
-                                className="text-primary hover:underline cursor-pointer font-medium bg-transparent border-none outline-none"
+                                className="text-primary hover:text-primary/80 cursor-pointer transition-colors ml-1"
                             >
-                                {isLogin ? "Cadastre-se" : "Faça login"}
+                                {isLogin ? "CADASTRE-SE" : "FAÇA LOGIN"}
                             </button>
-                        </div>
-                    </CardFooter>
-                </form>
-            </Card>
+                        </p>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 };

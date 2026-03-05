@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const navItems = [
-    { title: "Dashboard", url: "/", icon: LayoutDashboard },
+    { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
     { title: "Transações", url: "/transactions", icon: ArrowLeftRight },
     { title: "Categorias", url: "/categories", icon: Tag },
     { title: "Metas", url: "/goals", icon: Target },
@@ -24,14 +24,14 @@ export function TopNav() {
     const location = useLocation();
 
     const activeItem = navItems.find(item =>
-        item.url === "/" ? location.pathname === "/" : location.pathname.startsWith(item.url)
+        item.url === "/dashboard" ? location.pathname === "/dashboard" : location.pathname.startsWith(item.url)
     ) || navItems[0];
 
     return (
         <nav className="sticky top-0 z-50 w-full border-b border-white/10 bg-card/60 backdrop-blur-xl shadow-lg shadow-black/5">
             <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
                 {/* Logo & Platform Name */}
-                <Link to="/" className="flex items-center gap-3 group transition-transform hover:scale-105 active:scale-95">
+                <Link to="/dashboard" className="flex items-center gap-3 group transition-transform hover:scale-105 active:scale-95">
                     <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 group-hover:shadow-primary/40 transition-shadow">
                         <DollarSign className="h-6 w-6" />
                     </div>
@@ -52,7 +52,7 @@ export function TopNav() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="center" className="w-[240px] p-2 bg-popover/90 backdrop-blur-2xl border-white/10 rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200">
                             {navItems.map((item) => {
-                                const isActive = item.url === "/" ? location.pathname === "/" : location.pathname.startsWith(item.url);
+                                const isActive = item.url === "/dashboard" ? location.pathname === "/dashboard" : location.pathname.startsWith(item.url);
                                 return (
                                     <DropdownMenuItem key={item.title} asChild>
                                         <Link

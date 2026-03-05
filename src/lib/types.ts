@@ -7,6 +7,7 @@ export interface Transaction {
   category: string;
   date: string; // ISO string
   description: string;
+  paymentMethod?: "pix" | "cartao";
 }
 
 export interface Category {
@@ -44,5 +45,6 @@ export const DEFAULT_CATEGORIES: Category[] = [
   { id: "saude", name: "Saúde", icon: "Heart", color: "chart-5" },
   { id: "educacao", name: "Educação", icon: "GraduationCap", color: "chart-6" },
   { id: "investimentos", name: "Investimentos", icon: "TrendingUp", color: "chart-7" },
-  { id: "outros", name: "Outros", icon: "MoreHorizontal", color: "chart-8" },
+  { id: "cartao", name: "Fatura do Cartão", icon: "CreditCard", color: "chart-8" },
+  { id: "outros", name: "Outros", icon: "MoreHorizontal", color: "chart-9" },
 ];

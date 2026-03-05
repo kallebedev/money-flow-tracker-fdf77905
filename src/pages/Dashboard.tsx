@@ -17,7 +17,9 @@ import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { SpendingAnalysis, HealthScoreCard, AITipCard } from "@/components/SpendingAnalysis";
 import { useSpendingAnalysis } from "@/hooks/useSpendingAnalysis";
+import { useAIBudgetAdvisor } from "@/hooks/useAIBudgetAdvisor";
 import { AIBudgetPlanner } from "@/components/AIBudgetPlanner";
+import { ReportExportButton } from "@/components/ReportExportButton";
 
 const CHART_COLORS = [
   "hsl(142, 72%, 40%)",
@@ -34,30 +36,44 @@ function formatCurrency(v: number) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
-const emptyForm = { type: "expense" as TransactionType, amount: "", category: "", date: new Date().toISOString().slice(0, 10), description: "" };
+const emptyForm = {
+  type: "expense" as TransactionType,
+  amount: "",
+  category: "",
+  date: new Date().toISOString().slice(0, 10),
+  description: "",
+  paymentMethod: "pix" as "pix" | "cartao"
+};
 
 export default function Dashboard() {
   const { balance, transactions, categories, addTransaction } = useFinance();
   const navigate = useNavigate();
-  const { healthScore } = useSpendingAnalysis();
+  const advisor = useAIBudgetAdvisor();
   const [range, setRange] = useState("current");
   const [startDate, setStartDate] = useState(format(subMonths(new Date(), 1), "yyyy-MM-dd"));
   const [endDate, setEndDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
 
+
+
   const handleSave = () => {
     const amount = parseFloat(form.amount);
-    if (!amount || !form.category || !form.description) {
-      toast.error("Preencha todos os campos");
+    if (!amount || !form.description) {
+      toast.error("Preencha todos os campos obrigatórios");
+      return;
+    }
+    if (form.type === "expense" && !form.category) {
+      toast.error("Por favor, selecione uma categoria para a despesa");
       return;
     }
     addTransaction({
       type: form.type,
       amount,
-      category: form.category,
+      category: form.type === "expense" ? form.category : null,
       date: form.date,
-      description: form.description
+      description: form.description,
+      paymentMethod: form.type === "expense" ? form.paymentMethod : "pix"
     });
     toast.success("Transação adicionada!");
     setOpen(false);
@@ -83,17 +99,56 @@ export default function Dashboard() {
     }
   }, [transactions, range, startDate, endDate]);
 
+  const { healthScore, insights } = useSpendingAnalysis(filteredTransactions);
+
   const totalIncome = useMemo(
     () => filteredTransactions.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0),
     [filteredTransactions]
   );
 
   const totalExpense = useMemo(
-    () => filteredTransactions.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0),
+    () => filteredTransactions
+      .filter((t) => t.type === "expense" && t.paymentMethod !== "cartao")
+      .reduce((s, t) => s + t.amount, 0),
+    [filteredTransactions]
+  );
+
+  const totalCardExpense = useMemo(
+    () => filteredTransactions
+      .filter((t) => t.type === "expense" && t.paymentMethod === "cartao")
+      .reduce((s, t) => s + t.amount, 0),
     [filteredTransactions]
   );
 
   const savings = totalIncome - totalExpense;
+
+  const reportRangeLabel = useMemo(() => {
+    switch (range) {
+      case "current": return "Mês Atual";
+      case "3months": return "Últimos 3 Meses";
+      case "6months": return "Últimos 6 Meses";
+      case "all": return "Todo o Período";
+      case "custom": return `${format(parseISO(startDate), "dd/MM/yyyy")} - ${format(parseISO(endDate), "dd/MM/yyyy")}`;
+      default: return "";
+    }
+  }, [range, startDate, endDate]);
+
+  const reportData = {
+    transactions: filteredTransactions,
+    categories,
+    totalIncome,
+    totalExpense,
+    periodBalance: totalIncome - totalExpense,
+    globalBalance: balance,
+    healthScore,
+    insights,
+    advisorOverview: advisor?.overview,
+    dateRange: {
+      start: range === "custom" ? startDate : undefined,
+      end: range === "custom" ? endDate : undefined,
+      label: reportRangeLabel
+    }
+  };
 
   const expenseByCategory = useMemo(() => {
     const map: Record<string, number> = {};
@@ -140,6 +195,7 @@ export default function Dashboard() {
           <p className="text-muted-foreground mt-1">Bem-vindo de volta! Aqui está o resumo do seu mês.</p>
         </div>
         <div className="flex items-center gap-3">
+          <ReportExportButton {...reportData} />
           <Select value={range} onValueChange={setRange}>
             <SelectTrigger className="w-full sm:w-[160px] bg-card border border-border text-foreground h-11 px-4 rounded-xl shadow-sm">
               <SelectValue placeholder="Período" />
@@ -496,18 +552,42 @@ export default function Dashboard() {
               <Label className="text-muted-foreground font-medium">Valor (R$)</Label>
               <Input type="number" min="0" step="0.01" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} placeholder="0,00" className="bg-background border-border text-foreground h-11" />
             </div>
-            <div className="space-y-2">
-              <Label className="text-muted-foreground font-medium">Categoria</Label>
-              <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
-                <SelectTrigger className="bg-background border-border text-foreground h-11">
-                  <SelectValue placeholder="Selecione" />
-                </SelectTrigger>
-                <SelectContent className="bg-popover border-border text-popover-foreground">
-                  {categories.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className={cn("grid gap-4", form.type === "expense" ? "grid-cols-2" : "grid-cols-1")}>
+              {form.type === "expense" && (
+                <>
+                  <div className="space-y-2">
+                    <Label className="text-muted-foreground font-medium">Método de Pagamento</Label>
+                    <Select
+                      value={form.paymentMethod}
+                      onValueChange={(v: "pix" | "cartao") => {
+                        setForm({ ...form, paymentMethod: v });
+                      }}
+                    >
+                      <SelectTrigger className="bg-background border-border text-foreground h-11"><SelectValue /></SelectTrigger>
+                      <SelectContent className="bg-popover border-border text-popover-foreground">
+                        <SelectItem value="pix">Pix</SelectItem>
+                        <SelectItem value="cartao">Cartão de Crédito</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-muted-foreground font-medium">Categoria</Label>
+                    <Select
+                      value={form.category}
+                      onValueChange={(v) => setForm({ ...form, category: v })}
+                    >
+                      <SelectTrigger className="bg-background border-border text-foreground h-11">
+                        <SelectValue placeholder="Selecione" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-popover border-border text-popover-foreground">
+                        {categories.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">

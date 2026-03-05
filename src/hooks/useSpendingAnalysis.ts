@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useFinanceData } from "./useFinanceData";
+import { Transaction } from "@/lib/types";
 
 export interface SpendingInsight {
     categoryId: string;
@@ -11,8 +12,9 @@ export interface SpendingInsight {
     isUnusual: boolean;
 }
 
-export function useSpendingAnalysis() {
-    const { transactions, categories } = useFinanceData();
+export function useSpendingAnalysis(transactionsOverride?: Transaction[]) {
+    const { transactions: rawTransactions, categories } = useFinanceData();
+    const transactions = transactionsOverride || rawTransactions;
 
     const insights = useMemo(() => {
         if (transactions.length === 0 || categories.length === 0) return [];

@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Plus, Search, Pencil, Trash2, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
@@ -16,7 +17,14 @@ function formatCurrency(v: number) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
-const emptyForm = { type: "expense" as TransactionType, amount: "", category: "", date: new Date().toISOString().slice(0, 10), description: "" };
+const emptyForm = {
+  type: "expense" as TransactionType,
+  amount: "",
+  category: "",
+  date: new Date().toISOString().slice(0, 10),
+  description: "",
+  paymentMethod: "pix" as "pix" | "cartao"
+};
 
 export default function Transactions() {
   const { transactions, categories, addTransaction, updateTransaction, deleteTransaction } = useFinance();
@@ -44,21 +52,46 @@ export default function Transactions() {
 
   function openEdit(t: Transaction) {
     setEditId(t.id);
-    setForm({ type: t.type, amount: String(t.amount), category: t.category, date: t.date.slice(0, 10), description: t.description });
+    setForm({
+      type: t.type,
+      amount: String(t.amount),
+      category: t.category,
+      date: t.date.slice(0, 10),
+      description: t.description,
+      paymentMethod: t.category === "cartao" ? "cartao" : "pix"
+    });
     setOpen(true);
   }
 
   function handleSave() {
     const amount = parseFloat(form.amount);
-    if (!amount || !form.category || !form.description) {
+    if (!amount || !form.description) {
       toast.error("Preencha todos os campos");
       return;
     }
+    if (form.type === "expense" && !form.category) {
+      toast.error("Por favor, selecione uma categoria para a despesa");
+      return;
+    }
     if (editId) {
-      updateTransaction(editId, { type: form.type, amount, category: form.category, date: form.date, description: form.description });
+      updateTransaction(editId, {
+        type: form.type,
+        amount,
+        category: form.type === "expense" ? form.category : null,
+        date: form.date,
+        description: form.description,
+        paymentMethod: form.type === "expense" ? form.paymentMethod : "pix"
+      });
       toast.success("Transação atualizada!");
     } else {
-      addTransaction({ type: form.type, amount, category: form.category, date: form.date, description: form.description });
+      addTransaction({
+        type: form.type,
+        amount,
+        category: form.type === "expense" ? form.category : null,
+        date: form.date,
+        description: form.description,
+        paymentMethod: form.type === "expense" ? form.paymentMethod : "pix"
+      });
       toast.success("Transação adicionada!");
     }
     setOpen(false);
@@ -103,18 +136,42 @@ export default function Transactions() {
                   <Label className="text-muted-foreground font-medium">Valor (R$)</Label>
                   <Input type="number" min="0" step="0.01" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} placeholder="0,00" className="bg-background border-border text-foreground h-11" />
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-muted-foreground font-medium">Categoria</Label>
-                  <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
-                    <SelectTrigger className="bg-background border-border text-foreground h-11">
-                      <SelectValue placeholder="Selecione" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-popover border-border text-popover-foreground">
-                      {categories.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div className={cn("grid gap-4", form.type === "expense" ? "grid-cols-2" : "grid-cols-1")}>
+                  {form.type === "expense" && (
+                    <>
+                      <div className="space-y-2">
+                        <Label className="text-muted-foreground font-medium">Método de Pagamento</Label>
+                        <Select
+                          value={form.paymentMethod}
+                          onValueChange={(v: "pix" | "cartao") => {
+                            setForm({ ...form, paymentMethod: v });
+                          }}
+                        >
+                          <SelectTrigger className="bg-background border-border text-foreground h-11"><SelectValue /></SelectTrigger>
+                          <SelectContent className="bg-popover border-border text-popover-foreground">
+                            <SelectItem value="pix">Pix</SelectItem>
+                            <SelectItem value="cartao">Cartão de Crédito</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-muted-foreground font-medium">Categoria</Label>
+                        <Select
+                          value={form.category}
+                          onValueChange={(v) => setForm({ ...form, category: v })}
+                        >
+                          <SelectTrigger className="bg-background border-border text-foreground h-11">
+                            <SelectValue placeholder="Selecione" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-popover border-border text-popover-foreground">
+                            {categories.map((c) => (
+                              <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </>
+                  )}
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">

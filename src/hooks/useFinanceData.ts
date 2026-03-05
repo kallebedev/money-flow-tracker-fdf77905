@@ -44,7 +44,8 @@ export function useFinanceData() {
         amount: Number(t.amount),
         category: t.category_id, // Map category_id to category
         date: t.date,
-        description: t.description
+        description: t.description,
+        paymentMethod: t.payment_method
       })) as Transaction[];
     },
     enabled: !!user,
@@ -130,6 +131,7 @@ export function useFinanceData() {
           category_id: t.category, // Map category to category_id
           date: t.date,
           description: t.description,
+          payment_method: t.paymentMethod,
           user_id: user?.id
         }])
         .select()
@@ -151,6 +153,7 @@ export function useFinanceData() {
       if (data.category) updateData.category_id = data.category;
       if (data.date) updateData.date = data.date;
       if (data.description !== undefined) updateData.description = data.description;
+      if (data.paymentMethod) updateData.payment_method = data.paymentMethod;
 
       const { error } = await supabase
         .from("transactions")
@@ -328,7 +331,12 @@ export function useFinanceData() {
   );
 
   const balance = useMemo(
-    () => transactions.reduce((s, t) => s + (t.type === "income" ? t.amount : -t.amount), 0),
+    () => transactions.reduce((s, t) => {
+      if (t.type === "income") return s + t.amount;
+      // Subtract if it is NOT a card expense
+      if (t.paymentMethod !== "cartao") return s - t.amount;
+      return s;
+    }, 0),
     [transactions]
   );
 

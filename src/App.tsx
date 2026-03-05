@@ -13,8 +13,8 @@ import Categories from "./pages/Categories";
 import Goals from "./pages/Goals";
 import Profile from "./pages/Profile";
 import Login from "./pages/Login";
-import LandingPage from "./pages/LandingPage";
 import NotFound from "./pages/NotFound";
+import { Navigate } from "react-router-dom";
 
 import { ThemeProvider } from "@/components/ThemeProvider";
 
@@ -30,7 +30,7 @@ const App = () => (
           <FinanceProvider>
             <BrowserRouter>
               <Routes>
-                <Route path="/" element={<LandingPage />} />
+                <Route path="/" element={<Navigate to="/dashboard" replace />} />
                 <Route path="/login" element={<Login />} />
                 <Route
                   path="/*"

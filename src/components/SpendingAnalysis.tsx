@@ -19,7 +19,7 @@ export function SpendingAnalysis() {
             {unusualIncreases.length > 0 && (
                 <div className="space-y-4 animate-in fade-in duration-700">
                     <h3 className="text-sm font-black uppercase tracking-widest text-destructive flex items-center gap-2">
-                        <AlertTriangle className="h-4 w-4 animate-bounce" /> Alertas Críticos
+                        <AlertTriangle className="h-5 w-5 animate-bounce" /> Alertas Críticos
                     </h3>
                     <div className="grid gap-6 grid-cols-[repeat(auto-fit,minmax(280px,1fr))]">
                         {unusualIncreases.map((insight) => (
@@ -44,7 +44,7 @@ export function HealthScoreCard({ score }: { score: number }) {
     const isWarning = score < 80 && score >= 50;
 
     return (
-        <Card className="relative overflow-hidden transition-all duration-500 hover:shadow-2xl hover:-translate-y-1 border-primary/10 group bg-primary/5 backdrop-blur-xl rounded-[32px] p-2 shadow-xl shadow-primary/5 h-full">
+        <Card className="relative overflow-hidden transition-all duration-500 hover:shadow-2xl hover:-translate-y-1 border-primary/5 group bg-primary/[0.02] backdrop-blur-xl rounded-[32px] p-2 shadow-xl shadow-primary/5 h-full">
             <div className={cn(
                 "absolute -right-8 -top-8 w-32 h-32 rounded-full blur-3xl opacity-20 transition-all duration-700 group-hover:scale-150",
                 isGood ? "bg-emerald-500" : isWarning ? "bg-amber-500" : "bg-destructive"
@@ -94,36 +94,6 @@ export function HealthScoreCard({ score }: { score: number }) {
     );
 }
 
-export function AITipCard() {
-    return (
-        <Card className="relative overflow-hidden transition-all duration-500 hover:shadow-2xl hover:-translate-y-1 border-primary/20 group bg-primary/10 backdrop-blur-xl rounded-[32px] p-2 shadow-xl shadow-primary/10 h-full">
-            <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full blur-3xl opacity-20 bg-primary group-hover:scale-150 transition-transform duration-700" />
-
-            <CardContent className="pt-4 pb-3 relative z-10 flex flex-col h-full">
-                <div className="flex items-center gap-3 mb-4">
-                    <div className="h-12 w-12 rounded-2xl flex items-center justify-center bg-primary/20 shadow-inner group-hover:-rotate-3 transition-transform text-primary">
-                        <Brain className="h-6 w-6" />
-                    </div>
-                    <div className="flex flex-col">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-primary/60">Dica da IA</span>
-                        <span className="text-xs font-bold text-foreground">Insight Estratégico</span>
-                    </div>
-                </div>
-
-                <div className="flex-1 flex items-center italic text-[11px] font-bold text-foreground/90 leading-tight text-center px-2 group-hover:scale-[1.02] transition-transform py-3">
-                    "Antecipe compras recorrentes para aproveitar descontos e garantir o essencial."
-                </div>
-
-                <div className="mt-auto pt-4 flex justify-center border-t border-primary/20">
-                    <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/20 text-[9px] font-black uppercase tracking-tighter text-primary border border-primary/20 group-hover:scale-110 transition-transform shadow-sm">
-                        <Zap className="h-2.5 w-2.5 animate-pulse" />
-                        Nova dica amanhã
-                    </div>
-                </div>
-            </CardContent>
-        </Card>
-    );
-}
 
 function AnalysisCard({ insight, highlight = false }: { insight: SpendingInsight; highlight?: boolean }) {
     const isIncrease = insight.type === "increase";
@@ -211,7 +181,7 @@ function AnalysisCard({ insight, highlight = false }: { insight: SpendingInsight
 
                 {insight.isUnusual && (
                     <div className="mt-2 p-2 bg-destructive/10 rounded-xl border border-destructive/20 flex items-center gap-2 text-[10px] text-destructive font-black animate-pulse">
-                        <Info className="h-3 w-3 shrink-0" />
+                        <Info className="h-4 w-4 shrink-0" />
                         <span>ALERTA: GASTO ATÍPICO!</span>
                     </div>
                 )}

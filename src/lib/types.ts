@@ -23,6 +23,65 @@ export interface UserProfile {
   monthlySalary: number;
 }
 
+export type FinancialAccount = {
+  id: string;
+  name: string;
+  type: 'checking' | 'savings' | 'investment' | 'credit';
+  balance: number;
+  lastUpdated: string;
+  color?: string;
+  userId: string;
+};
+
+export type TaskStatus = 'todo' | 'in-progress' | 'completed' | 'delayed';
+
+export type ProductivityTask = {
+  id: string;
+  title: string;
+  description?: string;
+  impact: number;
+  urgency: number;
+  estimatedDuration: number;
+  scheduledStartTime: string;
+  status: TaskStatus;
+  createdAt: string;
+  projectId?: string;
+  isTopThree?: boolean;
+};
+
+export type Project = {
+  id: string;
+  name: string;
+  description?: string;
+  color: string;
+  deadline?: string;
+  status: 'active' | 'completed' | 'on-hold';
+};
+
+export type Goal = {
+  id: string;
+  title: string;
+  type: 'annual' | 'monthly';
+  targetDate: string;
+  status: 'pending' | 'achieved' | 'failed';
+};
+
+export type PersonalLog = {
+  id: string;
+  date: string;
+  energyLevel: number; // 1-10
+  mood: number; // 1-10
+  journal?: string;
+};
+
+export type FocusSession = {
+  id: string;
+  taskId?: string;
+  startTime: string;
+  duration: number; // total focus time in minutes
+  type: 'pomodoro' | 'deep-work';
+};
+
 export interface FinancialGoal {
   id: string;
   name: string;

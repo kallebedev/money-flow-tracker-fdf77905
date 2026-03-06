@@ -54,7 +54,7 @@ export default function Goals() {
         <h1 className="text-2xl font-bold">Metas Financeiras</h1>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button onClick={openNew}><Plus className="mr-2 h-4 w-4" />Nova Meta</Button>
+            <Button onClick={openNew}><Plus className="mr-2 h-5 w-5" />Nova Meta</Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>{editId ? "Editar" : "Nova"} Meta</DialogTitle></DialogHeader>
@@ -98,8 +98,8 @@ export default function Goals() {
                       </div>
                     </div>
                     <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => openEdit(g)}><Pencil className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="icon" onClick={() => { deleteGoal(g.id); toast.success("Meta excluída!"); }}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => openEdit(g)}><Pencil className="h-5 w-5" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => { deleteGoal(g.id); toast.success("Meta excluída!"); }}><Trash2 className="h-5 w-5 text-destructive" /></Button>
                     </div>
                   </div>
                   <Progress value={pct} className="h-3" />

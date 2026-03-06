@@ -96,8 +96,8 @@ export default function Profile() {
     return (
         <div className="max-w-2xl mx-auto space-y-8 animate-fade-in px-4">
             <div>
-                <h1 className="text-3xl font-bold tracking-tight">Configurações de Perfil</h1>
-                <p className="text-muted-foreground">Gerencie suas informações pessoais e como elas aparecem no FinanPro.</p>
+                <h1 className="text-3xl font-bold tracking-tight text-[#f0f0f0]">Informações de Perfil</h1>
+                <p className="text-muted-foreground">Gerencie seus dados pessoais e identidade visual.</p>
             </div>
 
             <div className="grid gap-8 md:grid-cols-[1fr_2fr]">
@@ -113,7 +113,7 @@ export default function Profile() {
                     </div>
                 </Card>
 
-                <Card className="finance-card border-primary/10">
+                <Card className="finance-card border-primary/5">
                     <CardHeader>
                         <CardTitle>Informações Básicas</CardTitle>
                         <CardDescription>Atualize seu nome e outras informações da conta.</CardDescription>
@@ -123,7 +123,7 @@ export default function Profile() {
                             <div className="space-y-2">
                                 <Label htmlFor="name">Nome Completo</Label>
                                 <div className="relative">
-                                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                                     <Input
                                         id="name"
                                         value={name}
@@ -137,7 +137,7 @@ export default function Profile() {
                             <div className="space-y-2 opacity-60">
                                 <Label htmlFor="email">E-mail</Label>
                                 <div className="relative">
-                                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                                     <Input
                                         id="email"
                                         value={user?.email || ""}
@@ -155,22 +155,6 @@ export default function Profile() {
                     </CardContent>
                 </Card>
             </div>
-
-            <Card className="finance-card border-primary/10">
-                <CardHeader>
-                    <CardTitle>Aparência</CardTitle>
-                    <CardDescription>Personalize o visual da aplicação.</CardDescription>
-                </CardHeader>
-                <CardContent className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                        <Label>Tema do Sistema</Label>
-                        <p className="text-xs text-muted-foreground">Alternar entre modo claro e escuro.</p>
-                    </div>
-                    <div className="h-10 w-10 flex items-center justify-center rounded-xl bg-accent border border-border">
-                        <ThemeToggle />
-                    </div>
-                </CardContent>
-            </Card>
 
             <Card className="border-destructive/20 bg-destructive/5 finance-card">
                 <CardHeader>

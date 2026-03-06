@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { FileDown, Sparkles, TrendingUp, CreditCard, PieChart, Info, Download, X, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { Transaction, Category } from "@/lib/types";
-import { format, parseISO, subMonths, isWithinInterval } from "date-fns";
+import { format, parseISO, subMonths, isWithinInterval, isAfter, startOfMonth, isBefore, endOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -31,54 +31,100 @@ import {
 } from "recharts";
 import { cn } from "@/lib/utils";
 
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useSpendingAnalysis } from "@/hooks/useSpendingAnalysis";
+import { useAIBudgetAdvisor } from "@/hooks/useAIBudgetAdvisor";
+
 interface ReportExportButtonProps {
     transactions: Transaction[];
     categories: Category[];
-    totalIncome: number;
-    totalExpense: number;
-    periodBalance: number;
     globalBalance: number;
-    healthScore: number;
-    insights: any[];
-    advisorOverview?: string;
-    dateRange: {
-        start?: string;
-        end?: string;
-        label: string;
-    };
 }
 
 export function ReportExportButton({
-    transactions,
+    transactions: allTransactions,
     categories,
-    totalIncome,
-    totalExpense,
-    periodBalance,
     globalBalance,
-    healthScore,
-    insights,
-    advisorOverview,
-    dateRange,
 }: ReportExportButtonProps) {
     const { user } = useAuth();
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+    const [range, setRange] = useState("current");
+    const [startDate, setStartDate] = useState(format(subMonths(new Date(), 1), "yyyy-MM-dd"));
+    const [endDate, setEndDate] = useState(format(new Date(), "yyyy-MM-dd"));
+
+    const filteredTransactions = useMemo(() => {
+        const now = new Date();
+        switch (range) {
+            case "current":
+                return allTransactions.filter(t => t.date.startsWith(format(now, "yyyy-MM")));
+            case "3months":
+                return allTransactions.filter(t => isAfter(parseISO(t.date), subMonths(startOfMonth(now), 2)));
+            case "6months":
+                return allTransactions.filter(t => isAfter(parseISO(t.date), subMonths(startOfMonth(now), 5)));
+            case "custom":
+                return allTransactions.filter(t => {
+                    const tDate = parseISO(t.date);
+                    return isAfter(tDate, parseISO(startDate)) && isBefore(tDate, endOfDay(parseISO(endDate)));
+                });
+            default:
+                return allTransactions;
+        }
+    }, [allTransactions, range, startDate, endDate]);
+
+    const { healthScore, insights } = useSpendingAnalysis(filteredTransactions);
+    const advisor = useAIBudgetAdvisor();
+    const advisorOverview = advisor?.overview;
+
+    const totalIncome = useMemo(() =>
+        filteredTransactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0),
+        [filteredTransactions]
+    );
+
+    const totalExpense = useMemo(() =>
+        filteredTransactions.filter(t => t.type === 'expense' && t.category !== 'cartao').reduce((s, t) => s + t.amount, 0),
+        [filteredTransactions]
+    );
+
+    const periodBalance = useMemo(() =>
+        filteredTransactions.reduce((s, t) => s + (t.type === 'income' ? t.amount : (t.category !== 'cartao' ? -t.amount : 0)), 0),
+        [filteredTransactions]
+    );
+
+    const dateRangeLabel = useMemo(() => {
+        switch (range) {
+            case "current": return "Mês Atual";
+            case "3months": return "Últimos 3 Meses";
+            case "6months": return "Últimos 6 Meses";
+            case "custom": return `${format(parseISO(startDate), "dd/MM/yy")} - ${format(parseISO(endDate), "dd/MM/yy")}`;
+            default: return "Todo o Período";
+        }
+    }, [range, startDate, endDate]);
 
     const formatBRL = (val: number) =>
         val.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-    // Calculate Variance (Simulated comparison with previous period if not provided)
     const prevMonthInterval = {
-        start: subMonths(new Date(dateRange.start || new Date()), 1),
-        end: subMonths(new Date(dateRange.end || new Date()), 1)
+        start: subMonths(new Date(startDate || new Date()), 1),
+        end: subMonths(new Date(endDate || new Date()), 1)
     };
 
-    const prevMonthTransactions = transactions.filter(t =>
+    const prevMonthTransactions = allTransactions.filter(t =>
         isWithinInterval(new Date(t.date), prevMonthInterval)
     );
 
-    const prevBalance = prevMonthTransactions.reduce((acc, t) =>
-        acc + (t.type === "income" ? t.amount : -t.amount), 0
-    );
+    const prevBalance = prevMonthTransactions.reduce((acc, t) => {
+        if (t.type === "income") return acc + t.amount;
+        if (t.category !== "cartao") return acc - t.amount;
+        return acc;
+    }, 0);
 
     const variance = prevBalance !== 0
         ? ((periodBalance - prevBalance) / Math.abs(prevBalance)) * 100
@@ -156,7 +202,7 @@ export function ReportExportButton({
         doc.setFont("helvetica", "normal");
         let yPos = 240;
         doc.text(`TITULAR: ${userName.toUpperCase()}`, 105, yPos, { align: "center" });
-        doc.text(`INTERVALO: ${dateRange.label.toUpperCase()}`, 105, yPos + 8, { align: "center" });
+        doc.text(`INTERVALO: ${dateRangeLabel.toUpperCase()}`, 105, yPos + 8, { align: "center" });
         doc.text(`EMISSÃO: ${reportDate}`, 105, yPos + 16, { align: "center" });
 
         // ==========================================
@@ -271,7 +317,7 @@ export function ReportExportButton({
         doc.rect(15, yPos + 4, 30, 2, "F");
 
         yPos += 20;
-        const cardTransactions = transactions.filter(t => t.paymentMethod === "cartao");
+        const cardTransactions = filteredTransactions.filter(t => t.paymentMethod === "cartao");
         const cardTotal = cardTransactions.reduce((s, t) => s + t.amount, 0);
 
         doc.setFillColor(...secondaryColor);
@@ -379,28 +425,63 @@ export function ReportExportButton({
         <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
             <DialogTrigger asChild>
                 <Button
-                    variant="outline"
-                    className="gap-2 rounded-2xl h-11 px-6 border-white/10 bg-white/5 hover:bg-primary hover:text-primary-foreground transition-all active:scale-95 shadow-lg group"
+                    variant="ghost"
+                    className="gap-2.5 h-8 px-4 border border-white/[0.03] hover:border-white/[0.08] hover:bg-[#111] transition-all active:scale-95 group rounded-[8px]"
                 >
-                    <Sparkles className="h-4 w-4 text-emerald-400 group-hover:text-primary-foreground transition-colors animate-pulse" />
-                    <span className="font-bold text-xs uppercase tracking-widest text-foreground group-hover:text-primary-foreground">Relatório Analítico</span>
+                    <Sparkles className="h-3.5 w-3.5 text-[#22c55e]" />
+                    <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#555] group-hover:text-[#f0f0f0]">Relatório Analítico</span>
                 </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-slate-950 border-white/10 text-white p-0 gap-0">
-                <DialogHeader className="p-6 border-b border-white/5 bg-slate-900/50 sticky top-0 z-10 backdrop-blur-md">
-                    <div className="flex justify-between items-center">
-                        <div>
-                            <DialogTitle className="text-2xl font-black tracking-tight flex items-center gap-2">
-                                <TrendingUp className="text-emerald-500 h-6 w-6" />
-                                Inteligência Financeira
-                            </DialogTitle>
-                            <p className="text-muted-foreground text-sm uppercase tracking-widest font-bold mt-1">
-                                Prévia do Relatório • {dateRange.label}
-                            </p>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-[#0a0a0a] border-white/[0.04] text-[#f0f0f0] p-0 gap-0 scrollbar-hide">
+                <DialogHeader className="p-8 border-b border-white/[0.03] bg-[#0a0a0a]/80 backdrop-blur-md sticky top-0 z-10 transition-all">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+                        <div className="space-y-4 flex-1 w-full">
+                            <div className="space-y-1">
+                                <DialogTitle className="text-title text-[#f0f0f0] flex items-center gap-3">
+                                    <TrendingUp className="text-[#22c55e] h-5 w-5" />
+                                    Inteligência Financeira
+                                </DialogTitle>
+                                <p className="text-[11px] text-[#555] uppercase tracking-[0.08em] font-medium">
+                                    Prévia do Relatório • {dateRangeLabel}
+                                </p>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-4">
+                                <Select value={range} onValueChange={setRange}>
+                                    <SelectTrigger className="w-[180px] bg-[#111] border-white/[0.06] text-[#888] h-10 text-[13px] rounded-lg">
+                                        <SelectValue placeholder="Selecionar Período" />
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-[#111] border-white/[0.08] text-[#f0f0f0] rounded-lg">
+                                        <SelectItem value="current">Mês Atual</SelectItem>
+                                        <SelectItem value="3months">Últimos 3 Meses</SelectItem>
+                                        <SelectItem value="6months">Últimos 6 Meses</SelectItem>
+                                        <SelectItem value="all">Todo o Período</SelectItem>
+                                        <SelectItem value="custom">Personalizado</SelectItem>
+                                    </SelectContent>
+                                </Select>
+
+                                {range === "custom" && (
+                                    <div className="flex items-center gap-3 animate-in fade-in slide-in-from-left-2">
+                                        <Input
+                                            type="date"
+                                            value={startDate}
+                                            onChange={(e) => setStartDate(e.target.value)}
+                                            className="bg-[#111] border-white/[0.06] text-[#f0f0f0] h-10 rounded-lg text-[12px] w-[140px]"
+                                        />
+                                        <span className="text-[#333]">-</span>
+                                        <Input
+                                            type="date"
+                                            value={endDate}
+                                            onChange={(e) => setEndDate(e.target.value)}
+                                            className="bg-[#111] border-white/[0.06] text-[#f0f0f0] h-10 rounded-lg text-[12px] w-[140px]"
+                                        />
+                                    </div>
+                                )}
+                            </div>
                         </div>
                         <Button
                             onClick={handleExportPDF}
-                            className="bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl gap-2 h-11 px-6 font-bold transition-all active:scale-95"
+                            className="bg-[#22c55e] hover:bg-[#22c55e]/85 text-[#0a0a0a] rounded-[10px] gap-2 h-10 px-6 font-bold transition-all active:scale-95 shrink-0"
                         >
                             <Download className="h-4 w-4" />
                             Exportar PDF
@@ -408,30 +489,30 @@ export function ReportExportButton({
                     </div>
                 </DialogHeader>
 
-                <div className="p-8 space-y-12">
-                    {/* SECTION: SUMMARY KPIs */}
-                    <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                        <div className="bg-white/5 border border-white/5 p-4 rounded-3xl space-y-1">
-                            <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Receitas</p>
-                            <p className="text-lg font-black text-emerald-400">{formatBRL(totalIncome)}</p>
+                <div className="p-10 space-y-12 animate-fade-up">
+                    {/* SECTION: SUMMARY KPIs: 1px Grid Layout */}
+                    <div className="rounded-xl overflow-hidden border border-white/[0.03] bg-white/[0.03] grid grid-cols-1 md:grid-cols-5 gap-px">
+                        <div className="bg-[#111] p-6 space-y-3">
+                            <p className="text-label">Receitas</p>
+                            <p className="text-[20px] font-mono-numbers text-[#22c55e]">{formatBRL(totalIncome)}</p>
                         </div>
-                        <div className="bg-white/5 border border-white/5 p-4 rounded-3xl space-y-1">
-                            <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Despesas</p>
-                            <p className="text-lg font-black text-red-400">{formatBRL(totalExpense)}</p>
+                        <div className="bg-[#111] p-6 space-y-3">
+                            <p className="text-label">Despesas</p>
+                            <p className="text-[20px] font-mono-numbers text-[#ef4444]">{formatBRL(totalExpense)}</p>
                         </div>
-                        <div className="bg-white/5 border border-white/5 p-4 rounded-3xl space-y-1">
-                            <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Saldo Período</p>
-                            <p className="text-lg font-black text-blue-400">{formatBRL(periodBalance)}</p>
+                        <div className="bg-[#111] p-6 space-y-3">
+                            <p className="text-label">Saldo Período</p>
+                            <p className="text-[20px] font-mono-numbers text-[#f0f0f0]">{formatBRL(periodBalance)}</p>
                         </div>
-                        <div className="bg-white/5 border border-white/5 p-4 rounded-3xl space-y-1">
-                            <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Saldo Atual</p>
-                            <p className="text-lg font-black text-white">{formatBRL(globalBalance)}</p>
+                        <div className="bg-[#111] p-6 space-y-3">
+                            <p className="text-label">Saldo Atual</p>
+                            <p className="text-[20px] font-mono-numbers text-[#f0f0f0]">{formatBRL(globalBalance)}</p>
                         </div>
-                        <div className="bg-white/5 border border-white/5 p-4 rounded-3xl space-y-1">
-                            <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Variação</p>
-                            <div className="flex items-center gap-1">
-                                {variance >= 0 ? <ArrowUpRight className="h-3 w-3 text-emerald-400" /> : <ArrowDownRight className="h-3 w-3 text-red-400" />}
-                                <p className={cn("text-lg font-black", variance >= 0 ? "text-emerald-400" : "text-red-400")}>
+                        <div className="bg-[#111] p-6 space-y-3">
+                            <p className="text-label">Variação</p>
+                            <div className="flex items-center gap-2">
+                                {variance >= 0 ? <ArrowUpRight className="h-4 w-4 text-[#22c55e]" /> : <ArrowDownRight className="h-4 w-4 text-[#ef4444]" />}
+                                <p className={cn("text-[20px] font-mono-numbers", variance >= 0 ? "text-[#22c55e]" : "text-[#ef4444]")}>
                                     {Math.abs(variance).toFixed(1)}%
                                 </p>
                             </div>
@@ -439,50 +520,51 @@ export function ReportExportButton({
                     </div>
 
                     {/* SECTION: CHARTS PREVIEW */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <div className="space-y-4">
-                            <div className="flex items-center gap-2 mb-2">
-                                <PieChart className="h-4 w-4 text-emerald-500" />
-                                <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground">Distribuição de Gastos</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-px border border-white/[0.03] bg-white/[0.03] rounded-xl overflow-hidden">
+                        <div className="bg-[#111] p-8 space-y-6">
+                            <div className="flex items-center gap-2">
+                                <PieChart className="h-3.5 w-3.5 text-[#555]" />
+                                <h3 className="text-label">Distribuição de Gastos</h3>
                             </div>
-                            <div className="h-[250px] w-full bg-white/[0.02] rounded-3xl border border-white/5 p-4">
+                            <div className="h-[200px] w-full">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <RePieChart>
                                         <Pie
                                             data={donutData}
                                             innerRadius={60}
                                             outerRadius={80}
-                                            paddingAngle={5}
+                                            paddingAngle={0}
                                             dataKey="value"
+                                            stroke="none"
                                         >
                                             {donutData.map((entry, index) => (
-                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="transparent" />
+                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                             ))}
                                         </Pie>
                                         <ReTooltip
-                                            contentStyle={{ backgroundColor: '#020617', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }}
-                                            itemStyle={{ color: '#fff', fontSize: '10px' }}
+                                            contentStyle={{ backgroundColor: '#111', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px' }}
+                                            itemStyle={{ color: '#f0f0f0', fontSize: '11px', fontFamily: 'DM Mono' }}
                                         />
                                     </RePieChart>
                                 </ResponsiveContainer>
                             </div>
                         </div>
 
-                        <div className="space-y-4">
-                            <div className="flex items-center gap-2 mb-2">
-                                <TrendingUp className="h-4 w-4 text-emerald-500" />
-                                <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground">Tendência de Saldo</h3>
+                        <div className="bg-[#111] p-8 space-y-6">
+                            <div className="flex items-center gap-2">
+                                <TrendingUp className="h-3.5 w-3.5 text-[#555]" />
+                                <h3 className="text-label">Tendência de Saldo</h3>
                             </div>
-                            <div className="h-[250px] w-full bg-white/[0.02] rounded-3xl border border-white/5 p-4">
+                            <div className="h-[200px] w-full">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <ReLineChart data={lineData}>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                                        <XAxis dataKey="name" stroke="rgba(255,255,255,0.3)" fontSize={10} axisLine={false} tickLine={false} />
+                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
+                                        <XAxis dataKey="name" stroke="#555" fontSize={10} axisLine={false} tickLine={false} />
                                         <ReTooltip
-                                            contentStyle={{ backgroundColor: '#020617', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }}
-                                            itemStyle={{ color: '#fff', fontSize: '10px' }}
+                                            contentStyle={{ backgroundColor: '#111', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px' }}
+                                            itemStyle={{ color: '#f0f0f0', fontSize: '11px', fontFamily: 'DM Mono' }}
                                         />
-                                        <Line type="monotone" dataKey="saldo" stroke="#10b981" strokeWidth={3} dot={{ fill: '#10b981', r: 4 }} />
+                                        <Line type="monotone" dataKey="saldo" stroke="#22c55e" strokeWidth={1.5} dot={{ fill: '#22c55e', r: 3, strokeWidth: 0 }} activeDot={{ r: 5 }} />
                                     </ReLineChart>
                                 </ResponsiveContainer>
                             </div>
@@ -492,77 +574,85 @@ export function ReportExportButton({
                     {/* SECTION: CREDIT CARD ANALYSIS PREVIEW */}
                     <div className="space-y-6">
                         <div className="flex items-center gap-2">
-                            <CreditCard className="h-4 w-4 text-emerald-500" />
-                            <h3 className="text-sm font-black uppercase tracking-widest text-muted-foreground">Detalhamento de Cartão</h3>
+                            <CreditCard className="h-3.5 w-3.5 text-[#555]" />
+                            <h3 className="text-label">Detalhamento de Cartão</h3>
                         </div>
-                        <div className="bg-white/5 border border-white/5 rounded-3xl p-8 flex flex-col md:flex-row gap-8 items-center">
-                            <div className="flex-1 space-y-1">
-                                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Fatura Estimada</p>
-                                <p className="text-4xl font-black text-red-400">{formatBRL(transactions.filter(t => t.paymentMethod === "cartao").reduce((s, t) => s + t.amount, 0))}</p>
-                                <p className="text-xs text-muted-foreground">{transactions.filter(t => t.paymentMethod === "cartao").length} transações identificadas</p>
+                        <div className="grid grid-cols-1 md:grid-cols-[1fr_1.6fr] gap-px rounded-xl border border-white/[0.03] bg-white/[0.03] overflow-hidden">
+                            <div className="bg-[#111] p-10 space-y-4 flex flex-col justify-center">
+                                <p className="text-label">Fatura Estimada</p>
+                                <p className="text-[40px] font-mono-numbers text-[#ef4444] tracking-tighter leading-none">
+                                    {formatBRL(filteredTransactions.filter(t => t.paymentMethod === "cartao").reduce((s, t) => s + t.amount, 0))}
+                                </p>
+                                <p className="text-[12px] text-[#555] font-light">{filteredTransactions.filter(t => t.paymentMethod === "cartao").length} transações identificadas</p>
                             </div>
-                            <div className="flex-1 w-full space-y-3">
-                                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">Principais Categorias (Cartão)</p>
-                                {transactions.filter(t => t.paymentMethod === "cartao").length === 0 ? (
-                                    <p className="text-xs text-muted-foreground italic">Nenhuma despesa no cartão este período.</p>
+                            <div className="bg-[#111] p-10 space-y-6">
+                                <p className="text-label">Principais Categorias (Cartão)</p>
+                                {filteredTransactions.filter(t => t.paymentMethod === "cartao").length === 0 ? (
+                                    <p className="text-[13px] text-[#555] font-light italic">Nenhuma despesa no cartão este período.</p>
                                 ) : (
-                                    Object.entries(
-                                        transactions.filter(t => t.paymentMethod === "cartao").reduce((acc, t) => {
-                                            const catName = categories.find(c => c.id === t.category)?.name || "Indefinido";
-                                            acc[catName] = (acc[catName] || 0) + t.amount;
-                                            return acc;
-                                        }, {} as Record<string, number>)
-                                    )
-                                        .sort(([, a], [, b]) => b - a)
-                                        .slice(0, 3)
-                                        .map(([name, amount]) => (
-                                            <div key={name} className="flex justify-between items-center bg-white/5 p-3 rounded-xl">
-                                                <span className="text-xs font-bold text-slate-300">{name}</span>
-                                                <span className="text-xs font-black text-white">{formatBRL(amount)}</span>
-                                            </div>
-                                        ))
+                                    <div className="space-y-px bg-white/[0.04] rounded-lg overflow-hidden border border-white/[0.04]">
+                                        {Object.entries(
+                                            filteredTransactions.filter(t => t.paymentMethod === "cartao").reduce((acc, t) => {
+                                                const catName = categories.find(c => c.id === t.category)?.name || "Indefinido";
+                                                acc[catName] = (acc[catName] || 0) + t.amount;
+                                                return acc;
+                                            }, {} as Record<string, number>)
+                                        )
+                                            .sort(([, a], [, b]) => b - a)
+                                            .slice(0, 3)
+                                            .map(([name, amount]) => (
+                                                <div key={name} className="flex justify-between items-center bg-[#111] px-5 py-4">
+                                                    <span className="text-[13px] font-medium text-[#888]">{name}</span>
+                                                    <span className="text-[13px] font-mono-numbers text-[#f0f0f0]">{formatBRL(amount)}</span>
+                                                </div>
+                                            ))}
+                                    </div>
                                 )}
                             </div>
                         </div>
                     </div>
 
                     {/* SECTION: AI INTELLIGENCE PREVIEW */}
-                    <div className="bg-emerald-500/5 border border-emerald-500/10 p-8 rounded-[40px] relative overflow-hidden group">
-                        <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform">
-                            <Sparkles className="h-24 w-24 text-emerald-500" />
+                    <div className="bg-[#111] border border-[#22c55e]/10 p-10 rounded-xl relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 p-10 opacity-[0.03] group-hover:scale-110 transition-transform pointer-events-none">
+                            <Sparkles className="h-32 w-32 text-[#22c55e]" />
                         </div>
-                        <div className="relative z-10 space-y-4">
-                            <div className="flex items-center gap-2">
-                                <div className="bg-emerald-500 p-1.5 rounded-lg">
-                                    <Sparkles className="h-4 w-4 text-white" />
+                        <div className="relative z-10 space-y-8">
+                            <div className="flex items-center gap-3">
+                                <div className="bg-[#22c55e]/10 p-2 rounded-[8px]">
+                                    <Sparkles className="h-4 w-4 text-[#22c55e]" />
                                 </div>
-                                <h3 className="text-sm font-black uppercase tracking-widest text-emerald-500">Inteligência Estratégica AI</h3>
+                                <h3 className="text-[12px] font-bold uppercase tracking-[0.1em] text-[#22c55e]">Inteligência Estratégica AI</h3>
                             </div>
-                            <p className="text-lg font-medium leading-relaxed text-slate-200">
-                                {advisorOverview || "Estamos analisando seus dados para gerar recomendações personalizadas."}
+                            <p className="text-[18px] font-normal leading-[1.6] text-[#f0f0f0]">
+                                {advisorOverview || "Carregando análise estratégica..."}
                             </p>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-                                <div className="flex items-start gap-3 p-4 bg-white/5 rounded-2xl">
-                                    <Info className="h-5 w-5 text-emerald-400 mt-0.5" />
-                                    <p className="text-xs text-muted-foreground leading-relaxed">
-                                        <span className="font-bold text-white block mb-1">Dica de Próximo Ciclo</span>
-                                        Baseado na sua tendência de gastos fixos, você terá um excedente de 15% para investimentos.
-                                    </p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-white/[0.04] rounded-lg overflow-hidden border border-white/[0.04]">
+                                <div className="flex items-start gap-4 p-6 bg-[#111]">
+                                    <Info className="h-4 w-4 text-[#22c55e] mt-1" />
+                                    <div className="space-y-1.5">
+                                        <p className="text-label text-[#f0f0f0]">Dica de Próximo Ciclo</p>
+                                        <p className="text-[12px] text-[#555] font-light leading-relaxed">
+                                            Baseado na sua tendência de gastos fixos, você terá um excedente de 15% para investimentos.
+                                        </p>
+                                    </div>
                                 </div>
-                                <div className="flex items-start gap-3 p-4 bg-white/5 rounded-2xl">
-                                    <CreditCard className="h-5 w-5 text-emerald-400 mt-0.5" />
-                                    <p className="text-xs text-muted-foreground leading-relaxed">
-                                        <span className="font-bold text-white block mb-1">Otimização de Cartão</span>
-                                        Evite novas parcelas no cartão este mês para manter seu Score de Saúde acima de 80%.
-                                    </p>
+                                <div className="flex items-start gap-4 p-6 bg-[#111]">
+                                    <CreditCard className="h-4 w-4 text-[#22c55e] mt-1" />
+                                    <div className="space-y-1.5">
+                                        <p className="text-label text-[#f0f0f0]">Otimização de Cartão</p>
+                                        <p className="text-[12px] text-[#555] font-light leading-relaxed">
+                                            Evite novas parcelas no cartão este mês para manter seu Score de Saúde acima de 80%.
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <DialogFooter className="p-6 bg-slate-900/50 border-t border-white/5">
-                    <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-[0.2em]">
+                <DialogFooter className="p-8 bg-[#0a0a0a] border-t border-white/[0.03] flex items-center justify-center">
+                    <p className="text-label text-[#333]">
                         Documento oficial • Gerado por MoneyFlow AI Intelligence
                     </p>
                 </DialogFooter>

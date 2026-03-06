@@ -117,7 +117,7 @@ export function useAIBudgetAdvisor(profileData?: BudgetProfileData) {
                 reason: b.reason
             })),
             categoryAdvice,
-            overview: `Com base nas suas respostas, sua distribuição ideal é: R$ ${needsLimit.toLocaleString("pt-BR")} para o essencial, R$ ${wantsLimit.toLocaleString("pt-BR")} para estilo de vida e R$ ${savingsLimit.toLocaleString("pt-BR")} para o futuro.`
+            overview: `Com base nas suas respostas, sua distribuição ideal é: R$ ${needsLimit.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} para o essencial, R$ ${wantsLimit.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} para estilo de vida e R$ ${savingsLimit.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} para o futuro.`
         };
     }, [monthlySalary, categories, profileData]);
 

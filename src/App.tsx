@@ -8,10 +8,13 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { Layout } from "@/components/Layout";
 import Dashboard from "./pages/Dashboard";
+import Productivity from "./pages/Productivity";
 import Transactions from "./pages/Transactions";
 import Categories from "./pages/Categories";
 import Goals from "./pages/Goals";
 import Profile from "./pages/Profile";
+import Settings from "./pages/Settings";
+import SpendingAnalysisPage from "./pages/SpendingAnalysisPage";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import { Navigate } from "react-router-dom";
@@ -39,11 +42,14 @@ const App = () => (
                       <Layout>
                         <Routes>
                           <Route path="/dashboard" element={<Dashboard />} />
+                          <Route path="/productivity" element={<Productivity />} />
                           <Route path="/transactions" element={<Transactions />} />
                           <Route path="/categories" element={<Categories />} />
                           <Route path="/goals" element={<Goals />} />
+                          <Route path="/analysis" element={<SpendingAnalysisPage />} />
                           <Route path="/profile" element={<Profile />} />
-                          <Route path="*" element={<NotFound />} />
+                          <Route path="/settings" element={<Settings />} />
+                          <Route path="*" element={<Navigate to="/dashboard" replace />} />
                         </Routes>
                       </Layout>
                     </ProtectedRoute>

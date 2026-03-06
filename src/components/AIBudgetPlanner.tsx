@@ -84,8 +84,8 @@ export function AIBudgetPlanner() {
             }
         }}>
             <DialogTrigger asChild>
-                <Button variant="outline" className="h-10 px-4 rounded-xl border-primary/20 bg-primary/5 hover:bg-primary/10 text-primary font-bold transition-all hover:scale-105">
-                    <Brain className="mr-2 h-4 w-4" /> Planejador IA
+                <Button variant="outline" className="h-10 px-4 rounded-xl border-primary/10 bg-primary/2 hover:bg-primary/5 text-primary font-bold transition-all hover:scale-105">
+                    <Brain className="mr-2 h-5 w-5" /> Planejador IA
                 </Button>
             </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-popover border-border text-popover-foreground">
@@ -117,7 +117,7 @@ export function AIBudgetPlanner() {
                                             type="number"
                                             value={tempSalary}
                                             onChange={(e) => setTempSalary(e.target.value)}
-                                            className="pl-12 h-16 text-2xl font-black bg-white/5 border-2 border-primary/20 rounded-2xl focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all placeholder:text-muted-foreground/30"
+                                            className="pl-12 h-16 text-2xl font-black bg-white/[0.02] border-2 border-primary/10 rounded-2xl focus:border-primary/40 focus:ring-4 focus:ring-primary/5 transition-all placeholder:text-muted-foreground/30"
                                             placeholder="0,00"
                                         />
                                     </div>
@@ -156,7 +156,7 @@ export function AIBudgetPlanner() {
                             <div className="flex items-center justify-between">
                                 <p className="text-muted-foreground text-sm">Conte um pouco sobre seu perfil financeiro:</p>
                                 <Button variant="ghost" size="sm" onClick={() => setStep("salary")} className="text-xs h-8">
-                                    <ArrowLeft className="mr-1 h-3 w-3" /> Alterar Salário
+                                    <ArrowLeft className="mr-1 h-4 w-4" /> Alterar Salário
                                 </Button>
                             </div>
 
@@ -231,7 +231,7 @@ export function AIBudgetPlanner() {
                                     onClick={() => setStep("advice")}
                                     className="w-full h-12 rounded-xl font-bold bg-primary hover:bg-primary/90 transition-all hover:scale-[1.02]"
                                 >
-                                    Gerar Orçamento Personalizado <Sparkles className="ml-2 h-4 w-4" />
+                                    Gerar Orçamento Personalizado <Sparkles className="ml-2 h-5 w-5" />
                                 </Button>
                                 <Button
                                     variant="ghost"
@@ -248,14 +248,14 @@ export function AIBudgetPlanner() {
                         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
                             <div className="flex items-center justify-between">
                                 <h3 className="font-bold flex items-center gap-2">
-                                    <Sparkles className="h-4 w-4 text-primary" /> Sugestão da IA
+                                    <Sparkles className="h-5 w-5 text-primary" /> Sugestão da IA
                                 </h3>
                                 <Button variant="ghost" size="sm" onClick={() => setStep("profile")} className="text-xs h-8">
-                                    <ArrowLeft className="mr-1 h-3 w-3" /> Ajustar Perfil
+                                    <ArrowLeft className="mr-1 h-4 w-4" /> Ajustar Perfil
                                 </Button>
                             </div>
 
-                            <div className="p-4 bg-primary/5 border border-primary/10 rounded-2xl">
+                            <div className="p-4 bg-primary/2 border border-primary/5 rounded-2xl">
                                 <p className="text-sm leading-relaxed text-foreground">
                                     {advisor.overview}
                                 </p>
@@ -263,13 +263,13 @@ export function AIBudgetPlanner() {
 
                             <div className="grid gap-3 sm:grid-cols-3">
                                 {advisor.buckets.map((bucket) => (
-                                    <div key={bucket.category} className="bg-card border border-border/50 p-4 rounded-2xl shadow-sm">
+                                    <div key={bucket.category} className="bg-card border border-white/[0.03] p-4 rounded-2xl shadow-sm">
                                         <div className="flex justify-between items-center mb-2">
                                             <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{bucket.category}</span>
                                             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary">{bucket.percentage}%</span>
                                         </div>
                                         <div className="text-lg font-bold">
-                                            R$ {bucket.suggestedAmount.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}
+                                            R$ {bucket.suggestedAmount.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}
                                         </div>
                                     </div>
                                 ))}
@@ -290,7 +290,7 @@ export function AIBudgetPlanner() {
                                 </div>
                                 <div className="grid gap-2">
                                     {advisor.categoryAdvice.filter(a => a.suggestedAmount > 0).map((advice) => (
-                                        <div key={advice.categoryId} className="flex items-center justify-between p-3 bg-background/50 border border-border/50 rounded-xl text-sm">
+                                        <div key={advice.categoryId} className="flex items-center justify-between p-3 bg-background/50 border border-white/[0.03] rounded-xl text-sm">
                                             <span className="font-medium">{advice.categoryName}</span>
                                             <div className="flex items-center gap-3">
                                                 <span className="text-muted-foreground text-xs">Sugerido: <span className="text-foreground font-bold">R$ {advice.suggestedAmount.toFixed(0)}</span></span>

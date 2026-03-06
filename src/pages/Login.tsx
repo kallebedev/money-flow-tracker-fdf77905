@@ -55,7 +55,7 @@ const Login = () => {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-[#050505] p-6 selection:bg-primary/30">
+        <div className="min-h-screen flex items-center justify-center bg-[#0a0a0a] p-6 selection:bg-[#22c55e]/30">
             {/* Background Decorative Elements */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
                 <div className="absolute top-0 right-0 -mr-40 -mt-40 h-[600px] w-[600px] rounded-full bg-primary/10 blur-[120px]" />
@@ -63,18 +63,21 @@ const Login = () => {
             </div>
 
             <div className="w-full max-w-sm relative z-10 animate-in fade-in zoom-in-95 duration-700">
-                <div className="text-center mb-10">
-                    <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-primary shadow-[0_0_30px_rgba(16,185,129,0.3)] mb-6 animate-pulse">
-                        <Wallet className="w-8 h-8 text-[#050505]" />
+                <div className="text-center mb-12">
+                    <div className="inline-flex items-center justify-center h-[72px] w-[72px] rounded-[18px] bg-[#22c55e] shadow-[0_0_40px_rgba(34,197,94,0.15)] mb-8 transition-transform hover:scale-105">
+                        <Wallet className="w-9 h-9 text-[#0a0a0a]" />
                     </div>
-                    <h1 className="text-4xl font-black text-white italic tracking-tighter mb-2">MONEYFLOW</h1>
-                    <p className="text-muted-foreground text-sm font-medium tracking-wide uppercase opacity-60">
-                        {isLogin ? "Sua jornada financeira começa aqui" : "Crie sua conta e comece a economizar"}
+                    <h1 className="text-[28px] font-normal font-mono tracking-[-0.04em] text-[#f0f0f0] mb-3">MONEYFLOW</h1>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-[#555] opacity-80">
+                        {isLogin ? "SISTEMA DE GESTÃO FINANCEIRA" : "CRIAÇÃO DE ACESSO AO SISTEMA"}
                     </p>
                 </div>
 
-                <div className="bg-white/[0.02] border border-white/10 backdrop-blur-3xl rounded-[32px] p-8 shadow-2xl">
-                    <form onSubmit={handleSubmit} className="space-y-5">
+                <div className="bg-[#111] border border-white/[0.03] rounded-[24px] p-10 shadow-2xl relative overflow-hidden">
+                    {/* Industrial Detail */}
+                    <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/[0.05] to-transparent" />
+
+                    <form onSubmit={handleSubmit} className="space-y-6 relative z-10">
                         {!isLogin && (
                             <div className="space-y-1.5 group">
                                 <Label htmlFor="name" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1 group-focus-within:text-primary transition-colors">Nome</Label>
@@ -84,7 +87,7 @@ const Login = () => {
                                     placeholder="SEU NOME"
                                     value={name}
                                     onChange={(e) => setName(e.target.value)}
-                                    className="h-12 bg-white/5 border-white/5 focus-visible:ring-primary focus-visible:border-primary/50 transition-all font-bold text-sm text-white rounded-xl placeholder:text-white/20"
+                                    className="h-12 bg-white/[0.02] border-white/[0.03] focus-visible:ring-primary/20 focus-visible:border-primary/40 transition-all font-bold text-sm text-white rounded-xl placeholder:text-white/20"
                                     required
                                 />
                             </div>
@@ -116,7 +119,7 @@ const Login = () => {
 
                         <Button
                             type="submit"
-                            className="w-full h-14 bg-primary hover:bg-primary/90 text-[#050505] font-black text-sm uppercase tracking-widest rounded-xl shadow-xl shadow-primary/20 transition-all active:scale-[0.98] group mt-4"
+                            className="w-full h-[54px] bg-[#22c55e] hover:bg-[#22c55e]/90 text-[#0a0a0a] font-black text-[12px] uppercase tracking-[0.15em] rounded-[14px] shadow-xl shadow-green-500/10 transition-all active:scale-[0.98] group mt-6"
                             disabled={isLoading}
                         >
                             {isLoading ? (
@@ -133,15 +136,15 @@ const Login = () => {
                         </Button>
                     </form>
 
-                    <div className="mt-8 text-center">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                            {isLogin ? "Não tem uma conta?" : "Já tem uma conta?"}{" "}
+                    <div className="mt-10 text-center relative z-10">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#555]">
+                            {isLogin ? "NÃO POSSUI ACESSO?" : "JÁ POSSUI ACESSO?"}{" "}
                             <button
                                 type="button"
                                 onClick={() => setIsLogin(!isLogin)}
-                                className="text-primary hover:text-primary/80 cursor-pointer transition-colors ml-1"
+                                className="text-[#22c55e] hover:text-[#22c55e]/80 cursor-pointer transition-colors ml-2"
                             >
-                                {isLogin ? "CADASTRE-SE" : "FAÇA LOGIN"}
+                                {isLogin ? "SOLICITAR CADASTRO" : "REALIZAR LOGIN"}
                             </button>
                         </p>
                     </div>

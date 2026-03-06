@@ -19,6 +19,7 @@ const TaskEditDialog: React.FC<TaskEditDialogProps> = ({ task, open, onOpenChang
     const [duration, setDuration] = useState('');
     const [impact, setImpact] = useState([5]);
     const [urgency, setUrgency] = useState([5]);
+    const [startDate, setStartDate] = useState(format(new Date(), 'yyyy-MM-dd'));
     const [startTime, setStartTime] = useState('09:00');
 
     useEffect(() => {
@@ -28,6 +29,7 @@ const TaskEditDialog: React.FC<TaskEditDialogProps> = ({ task, open, onOpenChang
             setImpact([task.impact]);
             setUrgency([task.urgency]);
             const date = parseISO(task.scheduledStartTime);
+            setStartDate(format(date, 'yyyy-MM-dd'));
             setStartTime(format(date, 'HH:mm'));
         }
     }, [task]);
@@ -35,10 +37,9 @@ const TaskEditDialog: React.FC<TaskEditDialogProps> = ({ task, open, onOpenChang
     const handleSave = () => {
         if (!task) return;
 
-        const date = parseISO(task.scheduledStartTime);
+        const [year, month, day] = startDate.split('-').map(Number);
         const [hours, minutes] = startTime.split(':').map(Number);
-        date.setHours(hours);
-        date.setMinutes(minutes);
+        const date = new Date(year, month - 1, day, hours, minutes);
 
         onSave(task.id, {
             title,
@@ -68,11 +69,11 @@ const TaskEditDialog: React.FC<TaskEditDialogProps> = ({ task, open, onOpenChang
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
-                            <Label className="text-[10px] uppercase font-bold text-[#555]">Duração (min)</Label>
+                            <Label className="text-[10px] uppercase font-bold text-[#555]">Data</Label>
                             <Input
-                                type="number"
-                                value={duration}
-                                onChange={(e) => setDuration(e.target.value)}
+                                type="date"
+                                value={startDate}
+                                onChange={(e) => setStartDate(e.target.value)}
                                 className="bg-[#0a0a0a] border-white/[0.03] text-[#f0f0f0] h-10"
                             />
                         </div>
@@ -85,6 +86,16 @@ const TaskEditDialog: React.FC<TaskEditDialogProps> = ({ task, open, onOpenChang
                                 className="bg-[#0a0a0a] border-white/[0.03] text-[#f0f0f0] h-10"
                             />
                         </div>
+                    </div>
+
+                    <div className="space-y-1">
+                        <Label className="text-[10px] uppercase font-bold text-[#555]">Duração (min)</Label>
+                        <Input
+                            type="number"
+                            value={duration}
+                            onChange={(e) => setDuration(e.target.value)}
+                            className="bg-[#0a0a0a] border-white/[0.03] text-[#f0f0f0] h-10"
+                        />
                     </div>
 
                     <div className="space-y-4">

@@ -13,7 +13,7 @@ export interface SpendingInsight {
 }
 
 export function useSpendingAnalysis(transactionsOverride?: Transaction[]) {
-    const { transactions: rawTransactions, categories, monthlySalary } = useFinanceData();
+    const { transactions: rawTransactions, categories, monthlySalary, goals } = useFinanceData();
     const transactions = transactionsOverride || rawTransactions;
 
     const insights = useMemo(() => {
@@ -106,87 +106,115 @@ export function useSpendingAnalysis(transactionsOverride?: Transaction[]) {
 
     }, [transactions, categories]);
 
-    const healthScore = useMemo(() => {
-        if (transactions.length === 0) return 100;
-
-        const transactionMonths = Array.from(new Set(transactions.map(t => t.date.slice(0, 7))));
-        const numMonths = Math.max(1, transactionMonths.length);
-
-        // 1. Budget Compliance (40% weight)
-        const categoriesWithBudgets = categories.filter(c => (c.monthlyBudget || 0) > 0);
-        let budgetScore = 100;
-
-        if (categoriesWithBudgets.length > 0) {
-            let weightedOverbudget = 0;
-            let totalBudgets = 0;
-
-            categoriesWithBudgets.forEach(cat => {
-                const current = insights.find(i => i.categoryId === cat.id)?.currentAmount || 0;
-                const budget = (cat.monthlyBudget || 0) * numMonths;
-                totalBudgets += budget;
-                if (current > budget) {
-                    weightedOverbudget += (current - budget);
-                }
-            });
-
-            const overbudgetRatio = totalBudgets > 0 ? weightedOverbudget / totalBudgets : 0;
-            // Use a smoother penalty
-            budgetScore = Math.max(0, 100 - (overbudgetRatio * 120));
+    const healthScoreData = useMemo(() => {
+        if (transactions.length === 0) {
+            return {
+                score: 100,
+                advice: "Comece a registrar suas transações para receber uma análise completa de saúde financeira.",
+                status: "Iniciante",
+                breakdown: { savings: 0, reserve: 0, distribution: 0, debt: 0, habits: 0, regularity: 0 }
+            };
         }
 
-        // 2. Savings Rate / Balance Health (40% weight - Increased)
-        // Uses monthlySalary if actual entries are missing (Projected Income)
-        const actualIncome = transactions
-            .filter(t => t.type === "income")
-            .reduce((acc, t) => acc + t.amount, 0);
+        const NEEDS_KEYWORDS = ["alimentação", "mercado", "aluguel", "moradia", "transporte", "combustível", "saúde", "farmácia", "educação", "contas", "luz", "água", "internet", "assinatura"];
+        const numMonths = Math.max(1, Array.from(new Set(transactions.map(t => t.date.slice(0, 7)))).length);
 
+        const actualIncome = transactions.filter(t => t.type === "income").reduce((acc, t) => acc + t.amount, 0);
         const projectedIncome = Math.max(actualIncome, monthlySalary * numMonths);
-        const totalExpenses = transactions
-            .filter(t => t.type === "expense")
+        const totalExpenses = transactions.filter(t => t.type === "expense").reduce((acc, t) => acc + t.amount, 0);
+
+        // 1. Savings Rate (25 pts)
+        let savingsScore = 0;
+        if (projectedIncome > 0) {
+            const savingsRate = (projectedIncome - totalExpenses) / projectedIncome;
+            if (savingsRate >= 0.2) savingsScore = 25;
+            else if (savingsRate > 0) savingsScore = (savingsRate / 0.2) * 25;
+        }
+
+        // 2. Emergency Reserve (20 pts)
+        const reserveGoals = goals.filter(g => g.name.toLowerCase().includes("reserva") || g.name.toLowerCase().includes("emergência"));
+        const currentReserve = reserveGoals.reduce((acc, g) => acc + g.currentAmount, 0);
+        const avgMonthlyExpense = totalExpenses / numMonths;
+        const targetReserve = avgMonthlyExpense * 6;
+
+        let reserveScore = 0;
+        if (targetReserve > 0) reserveScore = Math.min(20, (currentReserve / targetReserve) * 20);
+        else if (currentReserve > 0 || totalExpenses === 0) reserveScore = 20;
+
+        // 3. Fixed vs Variable (50/30/20 Rule) (20 pts)
+        const needsExpenses = transactions
+            .filter(t => t.type === "expense" && NEEDS_KEYWORDS.some(k => categories.find(c => c.id === t.category)?.name.toLowerCase().includes(k)))
             .reduce((acc, t) => acc + t.amount, 0);
 
-        let savingsScore = 100;
+        let distributionScore = 0;
         if (projectedIncome > 0) {
-            const expenseRatio = totalExpenses / projectedIncome;
-            // Ideal is spending <= 70% of income. 
-            // 70%-100% is safe but lower score. >100% is critical.
-            if (expenseRatio <= 0.5) savingsScore = 100;
-            else if (expenseRatio <= 0.7) savingsScore = 90;
-            else if (expenseRatio <= 1.0) {
-                savingsScore = 90 - (expenseRatio - 0.7) * 200; // 90 to 30
-            } else {
-                savingsScore = Math.max(0, 30 - (expenseRatio - 1.0) * 100); // Below 30
+            const needsRatio = needsExpenses / projectedIncome;
+            if (needsRatio <= 0.5) distributionScore = 20;
+            else if (needsRatio <= 0.8) distributionScore = 20 - ((needsRatio - 0.5) / 0.3) * 20;
+        } else if (totalExpenses === 0) distributionScore = 20;
+
+        // 4. Debt Management (15 pts)
+        const cardExpense = transactions
+            .filter(t => t.type === "expense" && (t.paymentMethod === "cartao" || categories.find(c => c.id === t.category)?.name.toLowerCase().includes("cartao")))
+            .reduce((acc, t) => acc + t.amount, 0);
+
+        let debtScore = 15;
+        if (projectedIncome > 0 && cardExpense > 0) {
+            const debtRatio = cardExpense / projectedIncome;
+            if (debtRatio <= 0.3) debtScore = 15;
+            else if (debtRatio <= 0.6) debtScore = Math.max(0, 15 - ((debtRatio - 0.3) / 0.3) * 15);
+            else debtScore = 0;
+        } else if (cardExpense === 0) debtScore = 15;
+
+        // 5. Habits (10 pts)
+        const nonEssentialCats = insights.filter(i => !NEEDS_KEYWORDS.some(k => i.categoryName.toLowerCase().includes(k)));
+        const totalWants = nonEssentialCats.reduce((acc, c) => acc + c.currentAmount, 0);
+        const maxWant = Math.max(0, ...nonEssentialCats.map(c => c.currentAmount));
+        let diversificationScore = 10;
+        if (totalWants > 0 && maxWant / totalWants > 0.6) diversificationScore = 5;
+        if (nonEssentialCats.length < 2 && totalExpenses > 0) diversificationScore = Math.min(diversificationScore, 5);
+
+        // 6. Regularity (10 pts)
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        const recentTrans = transactions.filter(t => new Date(t.date) >= thirtyDaysAgo);
+        const distinctDays = new Set(recentTrans.map(t => t.date.slice(0, 10))).size;
+        const regularityScore = Math.min(10, (distinctDays / 12) * 10);
+
+        const finalScore = Math.round(savingsScore + reserveScore + distributionScore + debtScore + diversificationScore + regularityScore);
+
+        let advice = "Seu padrão de gastos está exemplar. Continue mantendo o foco em seus objetivos de longo prazo.";
+        if (reserveScore < 10) advice = "Sua reserva de emergência está baixa. Ter pelo menos 6 meses de despesas guardados é vital para sua segurança.";
+        else if (savingsScore < 15) advice = "Sua taxa de poupança está abaixo do ideal. Tente guardar pelo menos 20% da sua renda mensal.";
+        else if (distributionScore < 12) advice = "Gastos fixos/essenciais estão muito altos. Tente reduzir contas básicas para liberar mais fluxo de caixa.";
+        else if (debtScore < 8) advice = "Cuidado com o uso do cartão. Você está comprometendo uma fatia perigosa da sua renda futura.";
+
+        let status = "Crítico";
+        if (finalScore >= 90) status = "Excelente";
+        else if (finalScore >= 75) status = "Bom";
+        else if (finalScore >= 50) status = "Regular";
+
+        return {
+            score: finalScore,
+            advice,
+            status,
+            breakdown: {
+                savings: Math.round(savingsScore),
+                reserve: Math.round(reserveScore),
+                distribution: Math.round(distributionScore),
+                debt: Math.round(debtScore),
+                habits: Math.round(diversificationScore),
+                regularity: Math.round(regularityScore)
             }
-        } else if (totalExpenses > 0) {
-            savingsScore = 20; // Spending with no registered or projected income
-        }
-
-        // 3. Trend Stability (20% weight - Reduced)
-        const totalAverage = insights.reduce((acc, i) => acc + i.averageAmount, 0);
-        const totalCurrent = insights.reduce((acc, i) => acc + i.currentAmount, 0);
-
-        let trendScore = 100;
-        if (totalAverage > 0) {
-            const trendRatio = totalCurrent / totalAverage;
-            if (trendRatio > 1.05) {
-                trendScore = Math.max(0, 100 - (trendRatio - 1.05) * 150);
-            }
-        }
-
-        // Final Adaptive Weighted Score
-        // If there are no budgets set, redistribute weights to Savings and Trend
-        const hasBudgets = categoriesWithBudgets.length > 0;
-        const weights = hasBudgets
-            ? { budget: 0.4, savings: 0.4, trend: 0.2 }
-            : { budget: 0, savings: 0.7, trend: 0.3 };
-
-        const finalScore = (budgetScore * weights.budget) + (savingsScore * weights.savings) + (trendScore * weights.trend);
-        return Math.round(Math.max(0, Math.min(100, finalScore)));
-    }, [transactions, categories, insights, monthlySalary]);
+        };
+    }, [transactions, categories, goals, monthlySalary, insights]);
 
     return {
         insights,
-        healthScore,
+        healthScore: healthScoreData.score,
+        healthAdvice: healthScoreData.advice,
+        healthStatus: healthScoreData.status,
+        healthBreakdown: healthScoreData.breakdown,
         unusualIncreases: insights.filter(i => i.isUnusual),
         topSpendingIncreases: insights.filter(i => i.type === "increase").slice(0, 3)
     };

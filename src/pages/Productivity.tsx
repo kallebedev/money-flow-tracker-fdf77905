@@ -32,8 +32,8 @@ export default function Productivity() {
 
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-2">
                 <div className="space-y-1">
-                    <h1 className="text-3xl md:text-5xl font-black text-foreground tracking-tight">Productivity Hub</h1>
-                    <p className="text-sm md:text-base text-muted-foreground font-medium opacity-80">Gerencie seu tempo e foco com clareza.</p>
+                    <h1 className="text-3xl md:text-title text-[#f0f0f0]">Productivity Hub</h1>
+                    <p className="text-[13px] md:text-[15px] text-[#555] font-light">Gerencie seu tempo e foco com clareza.</p>
                 </div>
             </div>
 

@@ -39,7 +39,7 @@ export function SpendingAnalysis() {
 }
 
 
-export function HealthScoreCard({ score }: { score: number }) {
+export function HealthScoreCard({ score, status, advice, breakdown }: { score: number; status?: string; advice?: string; breakdown?: Record<string, number> }) {
     const isGood = score >= 80;
     const isWarning = score < 80 && score >= 50;
 
@@ -57,7 +57,7 @@ export function HealthScoreCard({ score }: { score: number }) {
                     </div>
                     <div className="flex flex-col">
                         <span className="text-[10px] font-black uppercase tracking-widest text-foreground/50">Saúde Financeira</span>
-                        <span className="text-xs font-bold text-foreground">Score Baseado em Gastos</span>
+                        <span className="text-xs font-bold text-foreground">Score Inteligente</span>
                     </div>
                 </div>
 
@@ -83,11 +83,53 @@ export function HealthScoreCard({ score }: { score: number }) {
                             style={{ width: `${score}%` }}
                         />
                     </div>
-                    <p className="text-[10px] text-center text-muted-foreground font-medium italic opacity-80">
-                        {isGood ? "Excelente! Gastos sob controle." :
-                            isWarning ? "Atenção em categorias." :
-                                "Cuidado! Score baixo."}
-                    </p>
+                    <div className="space-y-2 mt-2">
+                        <div className={cn(
+                            "text-[10px] font-black uppercase tracking-tighter px-2 py-0.5 rounded-md w-fit mx-auto",
+                            isGood ? "bg-emerald-500/10 text-emerald-500" : isWarning ? "bg-amber-500/10 text-amber-500" : "bg-destructive/10 text-destructive"
+                        )}>
+                            {status || (isGood ? "Excelente" : isWarning ? "Regular" : "Crítico")}
+                        </div>
+                        <p className="text-[11px] text-center text-muted-foreground font-medium leading-relaxed italic">
+                            {advice || (isGood ? "Excelente! Gastos sob controle." : isWarning ? "Atenção em categorias." : "Cuidado! Score baixo.")}
+                        </p>
+                    </div>
+
+                    {breakdown && Object.keys(breakdown).length > 0 && (
+                        <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 pt-4 border-t border-primary/5">
+                            {Object.entries(breakdown).map(([key, value]) => {
+                                const labels: Record<string, string> = {
+                                    savings: "Poupança",
+                                    reserve: "Reserva",
+                                    distribution: "Essenciais",
+                                    debt: "Crédito",
+                                    habits: "Hábitos",
+                                    regularity: "Registros"
+                                };
+                                const maxValues: Record<string, number> = {
+                                    savings: 25, reserve: 20, distribution: 20, debt: 15, habits: 10, regularity: 10
+                                };
+                                const max = maxValues[key] || 10;
+                                return (
+                                    <div key={key} className="flex flex-col gap-1">
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-[8px] font-black uppercase tracking-widest opacity-40">{labels[key] || key}</span>
+                                            <span className="text-[9px] font-bold opacity-60">{value}</span>
+                                        </div>
+                                        <div className="h-1 w-full bg-muted/20 rounded-full overflow-hidden">
+                                            <div
+                                                className={cn(
+                                                    "h-full transition-all duration-1000",
+                                                    value / max > 0.8 ? "bg-emerald-500/60" : value / max > 0.5 ? "bg-amber-500/60" : "bg-destructive/60"
+                                                )}
+                                                style={{ width: `${(value / max) * 100}%` }}
+                                            />
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
             </CardContent>
         </Card>

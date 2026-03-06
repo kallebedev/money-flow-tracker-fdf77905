@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { format, parseISO, addMinutes } from 'date-fns';
+import { format, parseISO, addMinutes, addHours } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 import TaskEditDialog from './TaskEditDialog';
@@ -30,16 +30,18 @@ const DailyPlanner: React.FC<DailyPlannerProps> = ({ tasks, onStartTask, onCompl
         parseISO(a.scheduledStartTime).getTime() - parseISO(b.scheduledStartTime).getTime()
     );
 
-    const totalMinutes = tasks.reduce((acc, task) =>
-        task.status !== 'completed' ? acc + task.estimatedDuration : acc, 0
-    );
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    const totalMinutesToday = tasks.reduce((acc, task) => {
+        const isToday = task.scheduledStartTime.startsWith(todayStr);
+        return (isToday && task.status !== 'completed') ? acc + task.estimatedDuration : acc;
+    }, 0);
 
     const WORK_DAY_MINUTES = 8 * 60; // 8 hours
-    const isOverloaded = totalMinutes > WORK_DAY_MINUTES;
+    const isOverloaded = totalMinutesToday > WORK_DAY_MINUTES;
 
-    // Suggestion Logic: High Impact + High Urgency first, that are not completed
+    // Suggestion Logic: High Impact + High Urgency first, targeting today's tasks
     const suggestion = tasks
-        .filter(t => t.status === 'todo')
+        .filter(t => t.status === 'todo' && t.scheduledStartTime.startsWith(todayStr))
         .sort((a, b) => (b.impact + b.urgency) - (a.impact + a.urgency))[0];
 
     return (
@@ -51,7 +53,7 @@ const DailyPlanner: React.FC<DailyPlannerProps> = ({ tasks, onStartTask, onCompl
                     <AlertTitle className="text-primary font-bold">Sugestão do Dia</AlertTitle>
                     <AlertDescription className="flex justify-between items-center">
                         <span>
-                            Baseado na sua lista, você deve focar em: <strong>{suggestion.title}</strong>
+                            Baseado na sua lista de hoje, foque em: <strong>{suggestion.title}</strong>
                         </span>
                         <button
                             onClick={() => onStartTask(suggestion.id)}
@@ -69,56 +71,58 @@ const DailyPlanner: React.FC<DailyPlannerProps> = ({ tasks, onStartTask, onCompl
                     <AlertTriangle className="h-5 w-5" />
                     <AlertTitle>Aviso de Sobrecarga!</AlertTitle>
                     <AlertDescription>
-                        Você tem {Math.round(totalMinutes / 60)}h de trabalho planejado para hoje.
-                        Isso excede o limite saudável de 8h. Considere adiar tarefas de baixo impacto.
+                        Você tem {Math.round(totalMinutesToday / 60)}h de trabalho planejado para hoje.
+                        Isso excede o limite saudável de 8h.
                     </AlertDescription>
                 </Alert>
             )}
 
             {/* Timeline */}
-            <Card>
-                <CardHeader className="pb-3">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                        <Clock className="w-5 h-5 text-muted-foreground" />
-                        Cronograma do Dia
+            <Card className="bg-[#111] border-white/[0.03] rounded-[24px]">
+                <CardHeader className="pb-3 border-b border-white/[0.03] mb-4">
+                    <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2 text-muted-foreground">
+                        <Clock className="w-3.5 h-3.5 text-primary" />
+                        Cronograma Tático
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="relative border-l-2 border-muted ml-3 pl-6 space-y-6 py-2">
+                    <div className="relative border-l border-white/[0.06] ml-3 pl-8 space-y-8 py-4">
                         {sortedTasks.map((task, index) => {
                             const startTime = parseISO(task.scheduledStartTime);
-                            const endTime = addMinutes(startTime, task.estimatedDuration);
+                            const endTime = addHours(startTime, task.estimatedDuration / 60);
+                            const isToday = task.scheduledStartTime.startsWith(todayStr);
 
                             return (
                                 <div key={task.id} className="relative group">
                                     {/* Timeline Dot */}
                                     <div className={cn(
-                                        "absolute -left-[31px] top-1.5 w-4 h-4 rounded-full border-2 border-background z-10",
-                                        task.status === 'completed' ? "bg-green-500" :
-                                            task.status === 'in-progress' ? "bg-primary animate-pulse" :
-                                                task.status === 'delayed' ? "bg-red-500" : "bg-muted-foreground"
+                                        "absolute -left-[37px] top-1.5 w-3.5 h-3.5 rounded-full border border-[#111] z-10 transition-all",
+                                        task.status === 'completed' ? "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]" :
+                                            task.status === 'in-progress' ? "bg-primary animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.3)]" :
+                                                task.status === 'delayed' ? "bg-red-500" : "bg-white/10"
                                     )} />
 
                                     <div className={cn(
-                                        "p-3 rounded-lg border transition-all",
-                                        task.status === 'in-progress' ? "bg-primary/2 border-primary/10 ring-1 ring-primary/5" : "bg-card border-white/[0.03]",
-                                        task.status === 'completed' && "opacity-60 grayscale"
+                                        "p-4 rounded-[20px] border transition-all duration-300",
+                                        task.status === 'in-progress' ? "bg-primary/5 border-primary/20" : "bg-white/[0.02] border-white/[0.03] group-hover:border-white/[0.08]",
+                                        task.status === 'completed' && "opacity-40 grayscale"
                                     )}>
-                                        <div className="flex justify-between items-start mb-1">
-                                            <span className="text-[12px] font-mono text-muted-foreground">
+                                        <div className="flex justify-between items-start mb-2">
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-60">
+                                                {!isToday && <span className="text-primary mr-2">{format(startTime, 'dd/MM')}</span>}
                                                 {format(startTime, 'HH:mm')} - {format(endTime, 'HH:mm')}
                                             </span>
                                             <Badge
-                                                variant={task.status === 'completed' ? 'secondary' : 'outline'}
-                                                className="text-[10px] h-5 px-1.5"
+                                                variant="outline"
+                                                className="text-[9px] font-black uppercase tracking-wider h-5 px-2 bg-white/[0.02] border-white/[0.05]"
                                             >
-                                                {task.status === 'completed' ? 'Concluído' : `${task.estimatedDuration}m`}
+                                                {task.status === 'completed' ? 'Ok' : `${task.estimatedDuration}m`}
                                             </Badge>
                                         </div>
 
-                                        <div className="flex justify-between items-center mb-1">
+                                        <div className="flex justify-between items-center">
                                             <h4 className={cn(
-                                                "text-base font-semibold truncate",
+                                                "text-sm font-bold truncate tracking-tight text-[#f0f0f0]",
                                                 task.status === 'completed' && "line-through"
                                             )}>
                                                 {task.title}
@@ -126,15 +130,15 @@ const DailyPlanner: React.FC<DailyPlannerProps> = ({ tasks, onStartTask, onCompl
                                             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <button
                                                     onClick={() => setEditingTask(task)}
-                                                    className="p-1 hover:text-primary transition-colors"
+                                                    className="p-1.5 text-muted-foreground hover:text-primary transition-colors hover:bg-white/[0.05] rounded-lg"
                                                 >
-                                                    <Edit2 className="w-4 h-4" />
+                                                    <Edit2 className="w-3.5 h-3.5" />
                                                 </button>
                                                 <button
                                                     onClick={() => onDeleteTask(task.id)}
-                                                    className="p-1 hover:text-red-500 transition-colors"
+                                                    className="p-1.5 text-muted-foreground hover:text-red-500 transition-colors hover:bg-white/[0.05] rounded-lg"
                                                 >
-                                                    <Trash2 className="w-4 h-4" />
+                                                    <Trash2 className="w-3.5 h-3.5" />
                                                 </button>
                                             </div>
                                         </div>

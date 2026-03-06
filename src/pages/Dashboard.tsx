@@ -108,11 +108,25 @@ export default function Dashboard() {
     }
   }, [transactions, range, startDate, endDate]);
 
-  const { healthScore, unusualIncreases } = useSpendingAnalysis(filteredTransactions);
+  const { healthScore, healthAdvice, healthStatus, unusualIncreases } = useSpendingAnalysis(filteredTransactions);
 
-  const totalExpense = useMemo(
+  const totalPixExpense = useMemo(
     () => filteredTransactions
-      .filter((t) => t.type === "expense" && t.category !== "cartao")
+      .filter((t) => t.type === "expense" && t.paymentMethod === "pix")
+      .reduce((s, t) => s + t.amount, 0),
+    [filteredTransactions]
+  );
+
+  const totalCardExpense = useMemo(
+    () => filteredTransactions
+      .filter((t) => t.type === "expense" && t.paymentMethod === "cartao")
+      .reduce((s, t) => s + t.amount, 0),
+    [filteredTransactions]
+  );
+
+  const totalExpensePeriod = useMemo(
+    () => filteredTransactions
+      .filter((t) => t.type === "expense")
       .reduce((s, t) => s + t.amount, 0),
     [filteredTransactions]
   );
@@ -200,61 +214,91 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* KPI Strip: 1px Grid Layout */}
+      {/* KPI Strip: 4 columns for finance metrics */}
       <div className="rounded-xl overflow-hidden border border-white/[0.03] bg-white/[0.03] grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-px">
         {/* Card Saldo Total */}
         <div className="bg-[#111] p-7 pb-6 transition-colors hover:bg-[#161616]">
-          <p className="text-label mb-3.5">Saldo Total</p>
+          <p className="text-label mb-3.5">Saldo Atual</p>
           <div className="flex items-center gap-3">
             <span className="text-value-mono text-[#f0f0f0]">
               {balance.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
             </span>
-            <span className="inline-flex py-0.5 px-2 rounded-sm bg-[#22c55e]/10 text-[#22c55e] text-[10px] font-bold">
-              ↑ 12.5%
-            </span>
           </div>
-          <p className="text-[12px] text-[#555] mt-4 font-light">Atualizado agora</p>
+          <p className="text-[12px] text-[#555] mt-4 font-light">Disponível em conta</p>
         </div>
 
-        {/* Card Despesas */}
+        {/* Card Gasto Pix */}
         <div className="bg-[#111] p-7 pb-6 transition-colors hover:bg-[#161616]">
-          <p className="text-label mb-3.5">Despesas do Mês</p>
+          <p className="text-label mb-3.5">Gasto via Pix</p>
           <div className="flex items-center gap-3">
-            <span className="text-value-mono text-[#f0f0f0]">
-              {totalExpense.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-            </span>
-            <span className="inline-flex py-0.5 px-2 rounded-sm bg-[#ef4444]/10 text-[#ef4444] text-[10px] font-bold">
-              ↓ 3.2%
+            <span className="text-value-mono text-[#22c55e]">
+              {totalPixExpense.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
             </span>
           </div>
-          <p className="text-[11px] text-[#555] mt-4 font-light">Nível de gastos baixo</p>
+          <p className="text-[11px] text-[#555] mt-4 font-light">Saídas imediatas no período</p>
         </div>
 
-        {/* Card Saúde Financeira */}
+        {/* Card Fatura Cartão */}
         <div className="bg-[#111] p-7 pb-6 transition-colors hover:bg-[#161616]">
-          <p className="text-label mb-3.5">Saúde Financeira</p>
-          <div className="space-y-3">
-            <span className="font-mono-numbers text-[36px] text-[#f59e0b] leading-none">
-              {healthScore.toFixed(0)}
+          <p className="text-label mb-3.5">Fatura Cartão</p>
+          <div className="flex items-center gap-3">
+            <span className="text-value-mono text-[#f59e0b]">
+              {totalCardExpense.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
             </span>
-            <div className="h-[2px] w-full bg-white/[0.04] rounded-full overflow-hidden">
-              <div
-                className="h-full bg-[#f59e0b] transition-all duration-1000"
-                style={{ width: `${healthScore}%` }}
-              />
+          </div>
+          <p className="text-[11px] text-[#555] mt-4 font-light">Valor acumulado para pagar</p>
+        </div>
+
+        {/* Card Despesa Total */}
+        <div className="bg-[#111] p-7 pb-6 transition-colors hover:bg-[#161616]">
+          <p className="text-label mb-3.5">Despesa Total</p>
+          <div className="flex items-center gap-3">
+            <span className="text-value-mono text-[#ef4444]">
+              {totalExpensePeriod.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+            </span>
+          </div>
+          <p className="text-[11px] text-[#555] mt-4 font-light">Total de saídas registradas</p>
+        </div>
+      </div>
+
+      {/* AI Insights Row: 2 columns */}
+      <div className="rounded-xl overflow-hidden border border-white/[0.03] bg-white/[0.03] grid grid-cols-1 md:grid-cols-2 gap-px mt-6">
+        {/* Card Saúde Financeira */}
+        <div className="bg-[#111] p-7 pb-6 transition-colors hover:bg-[#161616] flex items-center justify-between">
+          <div className="space-y-4 flex-1">
+            <div className="flex items-center justify-between pr-8">
+              <p className="text-label">Saúde Financeira</p>
+              <div className="px-2 py-0.5 rounded-full bg-[#22c55e]/10 text-[#22c55e] text-[9px] font-black uppercase tracking-tighter">
+                {healthStatus}
+              </div>
+            </div>
+            <div className="space-y-3">
+              <span className="font-mono-numbers text-[36px] text-[#22c55e] leading-none">
+                {healthScore.toFixed(0)}
+              </span>
+              <div className="h-[2px] w-full max-w-[200px] bg-white/[0.04] rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-[#22c55e] transition-all duration-1000"
+                  style={{ width: `${healthScore}%` }}
+                />
+              </div>
             </div>
           </div>
-          <p className="text-[11px] text-[#555] mt-2 font-light">Pontos de saúde</p>
+          <div className="hidden sm:block">
+            <div className={`h-16 w-16 rounded-full border-2 flex items-center justify-center ${healthScore > 70 ? 'border-[#22c55e] text-[#22c55e]' : 'border-[#f59e0b] text-[#f59e0b]'}`}>
+              <PiggyBank className="h-8 w-8" />
+            </div>
+          </div>
         </div>
 
         {/* Card Dica IA */}
-        <div className="bg-[#111] p-7 pb-6 transition-colors hover:bg-[#161616]">
+        <div className="bg-[#111] p-7 pb-6 transition-colors hover:bg-[#161616] flex flex-col justify-center">
           <div className="flex items-center gap-2 mb-3.5">
-            <div className="h-1.5 w-1.5 rounded-full bg-[#22c55e]" />
-            <p className="text-[11px] uppercase tracking-[0.08em] font-medium text-[#22c55e]">Dica da IA</p>
+            <Lightbulb className="h-4 w-4 text-[#22c55e]" />
+            <p className="text-[11px] uppercase tracking-[0.15em] font-black text-[#22c55e]">Mentalidade Pro</p>
           </div>
-          <p className="text-[12px] font-light text-[#888] leading-relaxed line-clamp-3">
-            {unusualIncreases[0]?.categoryName ? `Atenção aos gastos em ${unusualIncreases[0].categoryName}! Considere reduzir as despesas nesta categoria.` : "Analise seus gastos fixos para identificar oportunidades de economia este mês."}
+          <p className="text-[13px] font-medium text-[#f0f0f0] leading-relaxed">
+            {healthAdvice}
           </p>
         </div>
       </div>
@@ -263,7 +307,11 @@ export default function Dashboard() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h2 className="text-label">Analise de Gastos</h2>
-          <Link to="/analysis" className="text-[11px] font-medium text-[#22c55e] hover:opacity-80 transition-opacity flex items-center gap-1 group">
+          <Link
+            to="/analysis"
+            state={{ range, startDate, endDate }}
+            className="text-[11px] font-medium text-[#22c55e] hover:opacity-80 transition-opacity flex items-center gap-1 group"
+          >
             Ver detalhes <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
           </Link>
         </div>
@@ -336,7 +384,7 @@ export default function Dashboard() {
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                 <span className="text-[10px] text-[#555] font-medium uppercase tracking-widest mt-1">Total</span>
                 <span className="font-mono-numbers text-[20px] text-[#f0f0f0] tracking-tighter">
-                  R$ {totalExpense.toFixed(0)}
+                  R$ {totalExpensePeriod.toFixed(0)}
                 </span>
               </div>
             </div>

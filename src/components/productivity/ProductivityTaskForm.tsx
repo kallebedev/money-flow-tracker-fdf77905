@@ -6,7 +6,7 @@ import { Slider } from '@/components/ui/slider';
 import { ProductivityTask } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Plus } from 'lucide-react';
-import { formatISO, addHours, startOfToday } from 'date-fns';
+import { formatISO, addHours, startOfToday, format } from 'date-fns';
 
 interface ProductivityTaskFormProps {
     onAdd: (task: Omit<ProductivityTask, 'id' | 'createdAt'>) => void;
@@ -17,16 +17,18 @@ const ProductivityTaskForm: React.FC<ProductivityTaskFormProps> = ({ onAdd }) =>
     const [impact, setImpact] = useState([5]);
     const [urgency, setUrgency] = useState([5]);
     const [duration, setDuration] = useState('30');
+    const [startDate, setStartDate] = useState(format(new Date(), 'yyyy-MM-dd'));
     const [startTime, setStartTime] = useState('09:00');
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!title) return;
 
-        const today = startOfToday();
+        // Combine date and time correctly
+        const [year, month, day] = startDate.split('-').map(Number);
         const [hours, minutes] = startTime.split(':').map(Number);
-        const scheduledDate = addHours(today, hours);
-        scheduledDate.setMinutes(minutes);
+
+        const scheduledDate = new Date(year, month - 1, day, hours, minutes);
 
         onAdd({
             title,
@@ -88,11 +90,11 @@ const ProductivityTaskForm: React.FC<ProductivityTaskFormProps> = ({ onAdd }) =>
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
-                            <Label className="text-[10px] uppercase font-bold text-muted-foreground">Duração (min)</Label>
+                            <Label className="text-[10px] uppercase font-bold text-muted-foreground">Data</Label>
                             <Input
-                                type="number"
-                                value={duration}
-                                onChange={(e) => setDuration(e.target.value)}
+                                type="date"
+                                value={startDate}
+                                onChange={(e) => setStartDate(e.target.value)}
                                 className="h-8 text-xs bg-background/50"
                             />
                         </div>
@@ -105,6 +107,16 @@ const ProductivityTaskForm: React.FC<ProductivityTaskFormProps> = ({ onAdd }) =>
                                 className="h-8 text-xs bg-background/50"
                             />
                         </div>
+                    </div>
+
+                    <div className="space-y-1">
+                        <Label className="text-[10px] uppercase font-bold text-muted-foreground">Duração (min)</Label>
+                        <Input
+                            type="number"
+                            value={duration}
+                            onChange={(e) => setDuration(e.target.value)}
+                            className="h-8 text-xs bg-background/50"
+                        />
                     </div>
 
                     <Button type="submit" className="w-full h-8 text-xs font-bold gap-2">

@@ -1,17 +1,50 @@
+import { useMemo, useState } from "react";
 import { useSpendingAnalysis } from "@/hooks/useSpendingAnalysis";
 import { useAIBudgetAdvisor } from "@/hooks/useAIBudgetAdvisor";
+import { useFinance } from "@/contexts/FinanceContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { HealthScoreCard } from "@/components/SpendingAnalysis";
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-    Cell, PieChart, Pie, LineChart, Line, Legend
+    Cell, PieChart, Pie, Legend
 } from 'recharts';
-import { Brain, TrendingUp, AlertTriangle, Info, ArrowLeft, ArrowUpRight, ArrowDownRight, Zap } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Brain, TrendingUp, AlertTriangle, ArrowLeft, ArrowUpRight, ArrowDownRight, Zap, Filter } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { format, parseISO, subMonths, isAfter, startOfMonth, isBefore, endOfDay } from "date-fns";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 
 export default function SpendingAnalysisPage() {
-    const { insights, healthScore, unusualIncreases } = useSpendingAnalysis();
+    const location = useLocation();
+    const { transactions } = useFinance();
+
+    // Period State (initialized from location state if coming from Dashboard)
+    const [range, setRange] = useState(location.state?.range || "current");
+    const [startDate, setStartDate] = useState(location.state?.startDate || format(subMonths(new Date(), 1), "yyyy-MM-dd"));
+    const [endDate, setEndDate] = useState(location.state?.endDate || format(new Date(), "yyyy-MM-dd"));
+
+    const filteredTransactions = useMemo(() => {
+        const now = new Date();
+        switch (range) {
+            case "current":
+                return transactions.filter(t => t.date.startsWith(format(now, "yyyy-MM")));
+            case "3months":
+                return transactions.filter(t => isAfter(parseISO(t.date), subMonths(startOfMonth(now), 2)));
+            case "6months":
+                return transactions.filter(t => isAfter(parseISO(t.date), subMonths(startOfMonth(now), 5)));
+            case "custom":
+                return transactions.filter(t => {
+                    const tDate = parseISO(t.date);
+                    return isAfter(tDate, parseISO(startDate)) && isBefore(tDate, endOfDay(parseISO(endDate)));
+                });
+            default:
+                return transactions;
+        }
+    }, [transactions, range, startDate, endDate]);
+
+    const { insights, healthScore, healthAdvice, healthStatus, healthBreakdown, unusualIncreases } = useSpendingAnalysis(filteredTransactions);
     const advisor = useAIBudgetAdvisor();
 
     // Data for Distribution Chart
@@ -38,18 +71,60 @@ export default function SpendingAnalysisPage() {
                 <Link to="/dashboard" className="flex items-center gap-2 text-sm font-bold text-muted-foreground hover:text-primary transition-colors w-fit">
                     <ArrowLeft className="h-4 w-4" /> Voltar ao Dashboard
                 </Link>
-                <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6">
+                <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
                     <div>
                         <h1 className="text-4xl font-black text-foreground tracking-tighter">Análise de Gastos</h1>
                         <p className="text-muted-foreground mt-2 text-lg">Visão completa do seu comportamento financeiro.</p>
                     </div>
+                    <div className="flex flex-wrap items-center gap-3">
+                        <Select value={range} onValueChange={setRange}>
+                            <SelectTrigger className="w-full md:w-[180px] bg-[#111] border-white/[0.03] text-[#888] h-12 text-[14px] rounded-xl">
+                                <SelectValue placeholder="Período" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-[#111] border-white/[0.08] text-[#f0f0f0] rounded-xl">
+                                <SelectItem value="current">Mês Atual</SelectItem>
+                                <SelectItem value="3months">Últimos 3 Meses</SelectItem>
+                                <SelectItem value="6months">Últimos 6 Meses</SelectItem>
+                                <SelectItem value="all">Todo o Período</SelectItem>
+                                <SelectItem value="custom">Personalizado</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
                 </div>
             </div>
 
+            {range === "custom" && (
+                <div className="p-6 bg-[#111] border border-white/[0.03] rounded-2xl flex flex-wrap gap-6 items-end animate-in fade-in slide-in-from-top-4 duration-300">
+                    <div className="space-y-2">
+                        <Label className="text-[10px] font-black uppercase tracking-widest opacity-50 pl-1">Início</Label>
+                        <Input
+                            type="date"
+                            value={startDate}
+                            onChange={(e) => setStartDate(e.target.value)}
+                            className="bg-[#0a0a0a] border-white/[0.03] text-[#f0f0f0] h-11 rounded-xl text-[13px] w-full sm:w-[200px]"
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label className="text-[10px] font-black uppercase tracking-widest opacity-50 pl-1">Fim</Label>
+                        <Input
+                            type="date"
+                            value={endDate}
+                            onChange={(e) => setEndDate(e.target.value)}
+                            className="bg-[#0a0a0a] border-white/[0.03] text-[#f0f0f0] h-11 rounded-xl text-[13px] w-full sm:w-[200px]"
+                        />
+                    </div>
+                </div>
+            )}
+
             {/* Top Row: Health and AI Overview */}
             <div className="grid gap-6 md:grid-cols-12">
-                <div className="md:col-span-4 lg:col-span-3">
-                    <HealthScoreCard score={healthScore} />
+                <div className="md:col-span-12">
+                    <HealthScoreCard
+                        score={healthScore}
+                        status={healthStatus}
+                        advice={healthAdvice}
+                        breakdown={healthBreakdown}
+                    />
                 </div>
                 <div className="md:col-span-8 lg:col-span-9">
                     <Card className="bg-[#111] border-white/[0.03] rounded-[32px] overflow-hidden group h-full">

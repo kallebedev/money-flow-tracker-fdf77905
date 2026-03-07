@@ -44,6 +44,30 @@ export const ProductivityDashboard = ({ tasks = [], goals = [] }: { tasks: any[]
     const [weeklyPlan, setWeeklyPlan] = React.useState<string[]>([]);
     const [isAILoading, setIsAILoading] = React.useState(false);
     const [aiNote, setAiNote] = React.useState<string>('Carregando conselho da IA...');
+    const [aiError, setAiError] = React.useState<boolean>(false);
+
+    const fetchAIAdvice = React.useCallback(async () => {
+        if (!stats) return;
+        setAiError(false);
+        setIsAILoading(true);
+        const completedToday = tasks.filter(t => t.status === 'completed').length;
+        try {
+            const note = await getAIAdvisorNote(stats, completedToday);
+            setAiNote(note);
+        } catch (error) {
+            console.error("AI Advisor Error:", error);
+            setAiNote("Mantenha o foco nas suas metas estratégicas hoje!");
+            setAiError(true);
+        } finally {
+            setIsAILoading(false);
+        }
+    }, [stats, tasks]);
+
+    React.useEffect(() => {
+        if (!isLoading && stats) {
+            fetchAIAdvice();
+        }
+    }, [stats, isLoading, fetchAIAdvice]);
 
     const handleGenerateWeeklyPlan = async () => {
         setIsAILoading(true);
@@ -63,7 +87,8 @@ export const ProductivityDashboard = ({ tasks = [], goals = [] }: { tasks: any[]
                 await addTaskAsync({
                     title: task,
                     status: 'todo',
-                    scheduled_start_time: new Date().toISOString(),
+                    scheduledStartTime: new Date().toISOString(),
+                    estimatedDuration: 30,
                     impact: 8,
                     urgency: 7
                 });
@@ -103,9 +128,10 @@ export const ProductivityDashboard = ({ tasks = [], goals = [] }: { tasks: any[]
                 for (const taskTitle of aiProposal.tasks) {
                     await addTaskAsync({
                         title: taskTitle,
-                        project_id: project.id,
+                        projectId: project.id,
                         status: 'todo',
-                        scheduled_start_time: new Date().toISOString(),
+                        scheduledStartTime: new Date().toISOString(),
+                        estimatedDuration: 30,
                         impact: 5,
                         urgency: 5
                     });
@@ -121,14 +147,6 @@ export const ProductivityDashboard = ({ tasks = [], goals = [] }: { tasks: any[]
         }
     };
 
-    React.useEffect(() => {
-        const completedToday = tasks.filter(t => t.status === 'completed').length;
-        if (!isLoading && stats) {
-            getAIAdvisorNote(stats, completedToday)
-                .then(setAiNote)
-                .catch(() => setAiNote("Mantenha o foco nas suas metas estratégicas hoje!"));
-        }
-    }, [stats, isLoading, tasks]);
 
     if (isLoading || !stats) {
         return (
@@ -170,9 +188,27 @@ export const ProductivityDashboard = ({ tasks = [], goals = [] }: { tasks: any[]
                                     <Sparkles className="w-6 h-6 text-primary" strokeWidth={3} />
                                     Conselho do Mentor
                                 </h3>
-                                <p className="text-white/60 text-sm italic mt-2 leading-relaxed">
-                                    "{aiNote}"
-                                </p>
+                                <div className="mt-2 min-h-[40px] flex items-center">
+                                    {aiError ? (
+                                        <div className="flex flex-col items-start gap-2">
+                                            <p className="text-red-400/80 text-xs italic leading-relaxed">
+                                                Não foi possível carregar o conselho agora (Limite de API atingido).
+                                            </p>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={fetchAIAdvice}
+                                                className="h-7 px-3 text-[10px] font-black uppercase tracking-widest bg-white/5 hover:bg-white/10"
+                                            >
+                                                Tentar Novamente
+                                            </Button>
+                                        </div>
+                                    ) : (
+                                        <p className="text-white/60 text-sm italic leading-relaxed">
+                                            "{aiNote}"
+                                        </p>
+                                    )}
+                                </div>
                             </div>
                             <div className="pt-2">
                                 <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-white/40 mb-2">

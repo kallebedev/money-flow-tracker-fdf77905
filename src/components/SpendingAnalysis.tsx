@@ -88,7 +88,7 @@ export function HealthScoreCard({ score, status, advice, breakdown }: { score: n
                         "text-4xl font-black tracking-tighter group-hover:scale-110 transition-transform",
                         isGood ? "text-emerald-500" : isWarning ? "text-amber-500" : "text-destructive"
                     )}>
-                        {score.toFixed(0)}
+                        {(score || 0).toFixed(0)}
                     </div>
                     <div className="text-[9px] font-bold uppercase tracking-widest opacity-40">Pontos de Saúde</div>
                 </div>

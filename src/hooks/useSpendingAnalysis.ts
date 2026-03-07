@@ -201,10 +201,10 @@ export function useSpendingAnalysis(transactionsOverride?: Transaction[]) {
 
     return {
         insights,
-        healthScore: healthScoreData.score,
-        healthAdvice: healthScoreData.advice,
-        healthStatus: healthScoreData.status,
-        healthBreakdown: healthScoreData.breakdown,
+        healthScore: healthScoreData?.score ?? 0,
+        healthAdvice: healthScoreData?.advice ?? "",
+        healthStatus: healthScoreData?.status ?? "Normal",
+        healthBreakdown: healthScoreData?.breakdown ?? {},
         unusualIncreases: insights.filter(i => i.isUnusual),
         topSpendingIncreases: insights.filter(i => i.type === "increase").slice(0, 3),
         triggerAIAnalysis,

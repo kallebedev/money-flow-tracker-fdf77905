@@ -361,33 +361,39 @@ export default function Dashboard() {
             <h2 className="text-label">Despesas por Categoria</h2>
           </div>
           <div className="flex flex-col items-center gap-10">
-            <div className="relative h-[180px] w-[180px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={expenseByCategory}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={65}
-                    outerRadius={85}
-                    paddingAngle={0}
-                    stroke="none"
-                  >
-                    {expenseByCategory.map((_, i) => (
-                      <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                    ))}
-                  </Pie>
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <span className="text-[10px] text-[#555] font-medium uppercase tracking-widest mt-1">Total</span>
-                <span className="font-mono-numbers text-[20px] text-[#f0f0f0] tracking-tighter">
-                  R$ {totalExpensePeriod.toFixed(0)}
-                </span>
+            {expenseByCategory.length > 0 ? (
+              <div className="relative h-[180px] w-[180px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={expenseByCategory}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={65}
+                      outerRadius={85}
+                      paddingAngle={0}
+                      stroke="none"
+                    >
+                      {expenseByCategory.map((_, i) => (
+                        <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <span className="text-[10px] text-[#555] font-medium uppercase tracking-widest mt-1">Total</span>
+                  <span className="font-mono-numbers text-[20px] text-[#f0f0f0] tracking-tighter">
+                    R$ {totalExpensePeriod.toFixed(0)}
+                  </span>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="h-[180px] flex items-center justify-center text-center p-6">
+                <p className="text-[11px] text-[#555] font-black uppercase tracking-[0.2em]">Sem dados para o período</p>
+              </div>
+            )}
 
             {/* Legend Rows with 1px border */}
             <div className="w-full border border-white/[0.06] rounded-lg overflow-hidden bg-white/[0.06] grid gap-px">
@@ -420,49 +426,58 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="h-[300px] w-full mt-4">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={monthlyEvolution}>
-                <defs>
-                  <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#22c55e" stopOpacity={0.12} />
-                    <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="colorExpense" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.08} />
-                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.03)" strokeDasharray="3 3" />
-                <XAxis
-                  dataKey="month"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fontSize: 11, fill: '#555' }}
-                  dy={15}
-                />
-                <YAxis hide />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#111', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px' }}
-                  itemStyle={{ fontSize: '12px', fontFamily: 'DM Mono' }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="receitas"
-                  stroke="#22c55e"
-                  strokeWidth={1.5}
-                  fillOpacity={1}
-                  fill="url(#colorIncome)"
-                />
-                <Area
-                  type="monotone"
-                  dataKey="despesas"
-                  stroke="#ef4444"
-                  strokeWidth={1.5}
-                  fillOpacity={1}
-                  fill="url(#colorExpense)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+            {monthlyEvolution.some(m => m.receitas > 0 || m.despesas > 0) ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={monthlyEvolution}>
+                  <defs>
+                    <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#22c55e" stopOpacity={0.12} />
+                      <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="colorExpense" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#ef4444" stopOpacity={0.08} />
+                      <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.03)" strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="month"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 11, fill: '#555' }}
+                    dy={15}
+                  />
+                  <YAxis hide />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#111', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px' }}
+                    itemStyle={{ fontSize: '12px', fontFamily: 'DM Mono' }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="receitas"
+                    stroke="#22c55e"
+                    strokeWidth={1.5}
+                    fillOpacity={1}
+                    fill="url(#colorIncome)"
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="despesas"
+                    stroke="#ef4444"
+                    strokeWidth={1.5}
+                    fillOpacity={1}
+                    fill="url(#colorExpense)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-center p-10 bg-white/[0.01] rounded-2xl border border-dashed border-white/[0.05]">
+                <TrendingDown className="w-8 h-8 text-white/10 mb-4" />
+                <p className="text-[12px] text-[#555] font-black uppercase tracking-[0.2em] max-w-[200px] leading-relaxed">
+                  Aguardando seus primeiros lançamentos para gerar o gráfico
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -45,6 +45,7 @@ export const YoutubePlayerDialog: React.FC<YoutubePlayerDialogProps> = ({
     const [searchTerm, setSearchTerm] = useState('');
     const [editingDocId, setEditingDocId] = useState<string | null>(null);
     const [editNameValue, setEditNameValue] = useState('');
+    const [videoError, setVideoError] = useState<string | null>(null);
 
     useEffect(() => {
         if (isOpen) {
@@ -209,14 +210,33 @@ export const YoutubePlayerDialog: React.FC<YoutubePlayerDialogProps> = ({
                                     width="100%"
                                     height="100%"
                                     controls={true}
-                                    playing={isOpen}
+                                    playing={isOpen && !videoError}
                                     onPlay={handlePlay}
                                     onProgress={handleProgress}
                                     onPause={handlePauseOrEnd}
                                     onEnded={handlePauseOrEnd}
+                                    onError={(e) => {
+                                        console.error("Video Error:", e);
+                                        setVideoError("Erro ao carregar o vídeo. Verifique se o link está correto ou se o vídeo é privado.");
+                                    }}
                                     // @ts-ignore
                                     config={{ youtube: { playerVars: { start: Math.floor(goal.youtubeTimestamp || 0), modestbranding: 1, rel: 0 } } }}
                                 />
+                            )}
+
+                            {videoError && (
+                                <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6 text-red-400 bg-black/80 backdrop-blur-sm z-10">
+                                    <X className="w-8 h-8 mb-4 border-2 border-red-400 rounded-full p-1" />
+                                    <p className="text-sm font-bold uppercase tracking-widest">{videoError}</p>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setVideoError(null)}
+                                        className="mt-4 border-red-400/20 text-red-300 hover:bg-red-400/10"
+                                    >
+                                        Tentar Novamente
+                                    </Button>
+                                </div>
                             )}
 
                             {/* Player Tools Overlay */}

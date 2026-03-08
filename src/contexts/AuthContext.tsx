@@ -93,15 +93,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateUserMetadata = async (data: any) => {
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    const merged = { ...(currentUser?.user_metadata || {}), ...data };
     const { data: updatedData, error } = await supabase.auth.updateUser({
-      data: { ...user?.user_metadata, ...data }
+      data: merged
     });
 
-    if (!error && updatedData.user) {
+    if (error) return { error };
+
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (sessionData?.session?.user) {
+      setUser(sessionData.session.user);
+    } else if (updatedData.user) {
       setUser(updatedData.user);
     }
 
-    return { error };
+    return { error: null };
   };
 
   return (

@@ -14,11 +14,12 @@ export const rescheduleFollowingTasks = (
     delayMinutes: number
 ): ProductivityTask[] => {
     const delayedTask = tasks.find(t => t.id === delayedTaskId);
-    if (!delayedTask) return tasks;
+    if (!delayedTask || !delayedTask.scheduledStartTime) return tasks;
 
     const delayedTaskStartTime = parseISO(delayedTask.scheduledStartTime).getTime();
 
     return tasks.map(task => {
+        if (!task.scheduledStartTime) return task;
         // Only shift tasks that start AFTER the delayed task and are NOT completed
         if (
             task.id !== delayedTaskId &&
@@ -29,7 +30,7 @@ export const rescheduleFollowingTasks = (
             return {
                 ...task,
                 scheduledStartTime: formatISO(newStartTime),
-                status: task.status === 'todo' ? 'todo' : task.status // Optional: mark as 'delayed' if needed
+                status: task.status === 'todo' ? 'todo' : task.status
             };
         }
 

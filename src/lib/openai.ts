@@ -145,6 +145,63 @@ export const generateBudgetAdvice = async (
     return JSON.parse(content) as AIBudgetAdvice;
 };
 
+/** Questionário completo para plano de controle financeiro (tipagem para a API) */
+export type FinancialPlanQuestionnaireInput = {
+    monthlySalary: number;
+    otherIncome?: number;
+    fixedExpenses?: number;
+    hasDebt: boolean;
+    debtMonthlyPayment?: number;
+    emergencyFundMonths?: number;
+    hasEmergencyFund: boolean;
+    goal: string;
+    lifestyle: string;
+    priority: string;
+    goalsShortTerm?: string;
+    goalsLongTerm?: string;
+};
+
+/** Gera um plano financeiro completo a partir do questionário detalhado */
+export const generateFinancialPlan = async (
+    questionnaire: FinancialPlanQuestionnaireInput,
+    categories: { id: string; name: string }[]
+): Promise<AIBudgetAdvice> => {
+    if (!openai) throw new Error("Chave OpenAI não configurada.");
+
+    const response = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+            {
+                role: "system",
+                content: `Você é um consultor financeiro especialista em controle financeiro pessoal. Com base nas respostas do questionário, crie um plano de controle financeiro personalizado e realista.
+
+Regras:
+- Considere renda total (salário + outras fontes), gastos fixos, dívidas e reserva de emergência.
+- Adapte a regra 50/30/20 ao perfil: quem tem dívidas deve priorizar quitação; quem quer investir deve aumentar poupança.
+- Se o usuário não tem reserva de emergência, sugira priorizar isso após essenciais.
+- categoryAdvice deve usar os categoryId e categoryName exatamente das categorias fornecidas.
+- overview deve ser um texto claro e motivador explicando o plano e os primeiros passos (2-4 parágrafos).
+
+Responda APENAS com um JSON válido:
+{
+  "overview": "Texto do plano completo com visão geral e passos iniciais",
+  "buckets": [{"category": "Nome do grupo", "percentage": 50, "suggestedAmount": 1000, "reason": "Breve justificativa"}],
+  "categoryAdvice": [{"categoryId": "id da categoria", "categoryName": "Nome", "suggestedAmount": 500, "advice": "Dica específica para essa categoria"}]
+}`
+            },
+            {
+                role: "user",
+                content: `Questionário do usuário: ${JSON.stringify(questionnaire)}. Categorias disponíveis: ${JSON.stringify(categories)}. Gere o plano financeiro ideal.`
+            }
+        ],
+        response_format: { type: "json_object" }
+    });
+
+    const content = response.choices[0].message.content;
+    if (!content) throw new Error("IA não retornou resposta.");
+    return JSON.parse(content) as AIBudgetAdvice;
+};
+
 export const analyzeFinanceHealth = async (
     transactions: any[],
     categories: any[],

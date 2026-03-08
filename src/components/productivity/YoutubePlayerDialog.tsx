@@ -366,11 +366,18 @@ export const YoutubePlayerDialog: React.FC<YoutubePlayerDialogProps> = ({
                                                     </>
                                                 )}
                                             </div>
-                                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <Button size="icon" variant="ghost" className="h-7 w-7 rounded-full hover:bg-white/10" onClick={(e) => { e.stopPropagation(); setEditingDocId(item.id); setEditNameValue(item.name); }}>
+                                            <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    className="h-7 px-2 rounded-lg hover:bg-white/10 text-[9px] font-bold uppercase tracking-wider gap-1"
+                                                    title={item.type === 'folder' ? 'Renomear pasta' : 'Renomear documento'}
+                                                    onClick={(e) => { e.stopPropagation(); setEditingDocId(item.id); setEditNameValue(item.name); }}
+                                                >
                                                     <Pencil className="w-3 h-3" />
+                                                    Renomear
                                                 </Button>
-                                                <Button size="icon" variant="ghost" className="h-7 w-7 rounded-full hover:bg-red-500/20 hover:text-red-500" onClick={(e) => { e.stopPropagation(); handleDeleteLocalItem(item.id); }}>
+                                                <Button size="icon" variant="ghost" className="h-7 w-7 rounded-full hover:bg-red-500/20 hover:text-red-500" title="Excluir" onClick={(e) => { e.stopPropagation(); handleDeleteLocalItem(item.id); }}>
                                                     <Trash2 className="w-3 h-3" />
                                                 </Button>
                                             </div>

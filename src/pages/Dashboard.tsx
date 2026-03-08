@@ -13,7 +13,10 @@ import {
   Target,
   Lightbulb,
   Tag,
-  ArrowRight
+  ArrowRight,
+  Settings2,
+  ChevronDown,
+  ChevronUp
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PieChart, Pie, Cell, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
@@ -30,7 +33,8 @@ import { useNavigate, Link } from "react-router-dom";
 import { SpendingAnalysis } from "@/components/SpendingAnalysis";
 import { useSpendingAnalysis } from "@/hooks/useSpendingAnalysis";
 import { useAIBudgetAdvisor } from "@/hooks/useAIBudgetAdvisor";
-import { ReportExportButton } from "@/components/ReportExportButton";
+import { useAuth } from "@/contexts/AuthContext";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 const CHART_COLORS = [
   "hsl(142, 72%, 40%)",
@@ -57,7 +61,8 @@ const emptyForm = {
 };
 
 export default function Dashboard() {
-  const { balance, transactions, categories, addTransaction } = useFinance();
+  const { balance, transactions, categories, addTransaction, goals } = useFinance();
+  const { user, updateUserMetadata } = useAuth();
   const navigate = useNavigate();
   const advisor = useAIBudgetAdvisor();
   const [range, setRange] = useState("current");
@@ -171,11 +176,6 @@ export default function Dashboard() {
           <p className="text-[13px] md:text-[15px] text-[#555] font-light">Gerencie suas finanças e produtividade em um só lugar</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <ReportExportButton
-            transactions={transactions}
-            categories={categories}
-            globalBalance={balance}
-          />
           <Select value={range} onValueChange={setRange}>
             <SelectTrigger className="w-full md:w-[160px] bg-[#111] border-white/[0.03] text-[#888] h-10 text-[14px] rounded-lg">
               <SelectValue placeholder="Período" />
@@ -261,34 +261,130 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Metas Financeiras: controle no hub */}
+      <div className="space-y-6 mt-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-label flex items-center gap-2">
+            <Target className="h-4 w-4 text-[#22c55e]" />
+            Metas Financeiras
+          </h2>
+          <Link
+            to="/goals"
+            className="text-[11px] font-medium text-[#22c55e] hover:opacity-80 transition-opacity flex items-center gap-1 group"
+          >
+            Ver todas <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
+          </Link>
+        </div>
+        <div className="rounded-xl overflow-hidden border border-white/[0.03] bg-white/[0.03] grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px">
+          {goals.length === 0 ? (
+            <div className="bg-[#111] p-10 col-span-full flex flex-col items-center justify-center text-center">
+              <Target className="h-12 w-12 text-white/20 mb-3" />
+              <p className="text-[13px] text-[#555] font-light">Nenhuma meta financeira cadastrada</p>
+              <Link to="/goals" className="mt-3 text-[11px] font-medium text-[#22c55e] hover:opacity-80">
+                Criar meta →
+              </Link>
+            </div>
+          ) : (
+            goals.slice(0, 6).map((g) => {
+              const pct = Math.min(100, Math.round((g.currentAmount / g.targetAmount) * 100));
+              const remaining = Math.max(0, g.targetAmount - g.currentAmount);
+              return (
+                <div key={g.id} className="bg-[#111] p-6 transition-colors hover:bg-[#161616] flex flex-col">
+                  <div className="flex items-start justify-between gap-2 mb-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[14px] font-semibold text-[#f0f0f0] truncate">{g.name}</p>
+                      <p className="text-[11px] text-[#555] mt-0.5">
+                        {g.deadline ? `Prazo: ${format(parseISO(g.deadline), "dd/MM/yyyy", { locale: ptBR })}` : "Sem prazo definido"}
+                      </p>
+                    </div>
+                    <span className="text-[11px] font-bold text-[#22c55e] shrink-0">{pct}%</span>
+                  </div>
+                  <div className="h-1.5 w-full bg-white/[0.06] rounded-full overflow-hidden mb-3">
+                    <div
+                      className="h-full bg-[#22c55e] rounded-full transition-all duration-500"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-[12px] text-[#888] font-mono-numbers mt-auto">
+                    <span>{g.currentAmount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} / {g.targetAmount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                  </div>
+                  <p className="text-[10px] text-[#555] mt-1">Faltam {remaining.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+
       {/* AI Insights Row: 2 columns */}
       <div className="rounded-xl overflow-hidden border border-white/[0.03] bg-white/[0.03] grid grid-cols-1 md:grid-cols-2 gap-px mt-6">
         {/* Card Saúde Financeira */}
-        <div className="bg-[#111] p-7 pb-6 transition-colors hover:bg-[#161616] flex items-center justify-between">
-          <div className="space-y-4 flex-1">
-            <div className="flex items-center justify-between pr-8">
-              <p className="text-label">Saúde Financeira</p>
-              <div className="px-2 py-0.5 rounded-full bg-[#22c55e]/10 text-[#22c55e] text-[9px] font-black uppercase tracking-tighter">
-                {healthStatus}
+        <div className="bg-[#111] p-7 pb-6 transition-colors hover:bg-[#161616]">
+          <div className="flex items-center justify-between">
+            <div className="space-y-4 flex-1">
+              <div className="flex items-center justify-between pr-8">
+                <p className="text-label">Saúde Financeira</p>
+                <div className="px-2 py-0.5 rounded-full bg-[#22c55e]/10 text-[#22c55e] text-[9px] font-black uppercase tracking-tighter">
+                  {healthStatus}
+                </div>
+              </div>
+              <div className="space-y-3">
+                <span className="font-mono-numbers text-[36px] text-[#22c55e] leading-none">
+                  {healthScore.toFixed(0)}
+                </span>
+                <div className="h-[2px] w-full max-w-[200px] bg-white/[0.04] rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-[#22c55e] transition-all duration-1000"
+                    style={{ width: `${healthScore}%` }}
+                  />
+                </div>
               </div>
             </div>
-            <div className="space-y-3">
-              <span className="font-mono-numbers text-[36px] text-[#22c55e] leading-none">
-                {healthScore.toFixed(0)}
-              </span>
-              <div className="h-[2px] w-full max-w-[200px] bg-white/[0.04] rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-[#22c55e] transition-all duration-1000"
-                  style={{ width: `${healthScore}%` }}
-                />
+            <div className="hidden sm:block">
+              <div className={cn("h-16 w-16 rounded-full border-2 flex items-center justify-center", healthScore > 70 ? "border-[#22c55e] text-[#22c55e]" : "border-[#f59e0b] text-[#f59e0b]")}>
+                <PiggyBank className="h-8 w-8" />
               </div>
             </div>
           </div>
-          <div className="hidden sm:block">
-            <div className={`h-16 w-16 rounded-full border-2 flex items-center justify-center ${healthScore > 70 ? 'border-[#22c55e] text-[#22c55e]' : 'border-[#f59e0b] text-[#f59e0b]'}`}>
-              <PiggyBank className="h-8 w-8" />
-            </div>
-          </div>
+          <Collapsible className="mt-6">
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" size="sm" className="w-full justify-between h-9 text-[11px] font-bold uppercase tracking-wider text-[#555] hover:text-[#f0f0f0] hover:bg-white/[0.03] rounded-lg">
+                Ajustar parâmetros do score
+                <ChevronDown className="h-4 w-4 transition-transform [[data-state=open]_&]:rotate-180" />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="grid gap-4 sm:grid-cols-3 pt-4 mt-4 border-t border-white/[0.06]">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-[#555]">Taxa de Poupança Ideal (%)</Label>
+                  <Input
+                    type="number"
+                    value={((user?.user_metadata?.idealSavingsRate ?? 0.2) * 100).toString()}
+                    onChange={(e) => updateUserMetadata({ idealSavingsRate: Number(e.target.value) / 100 })}
+                    className="bg-[#0a0a0a] border-white/[0.06] h-9 text-sm"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-[#555]">Reserva de Emergência (Meses)</Label>
+                  <Input
+                    type="number"
+                    value={user?.user_metadata?.emergencyFundMonths ?? 6}
+                    onChange={(e) => updateUserMetadata({ emergencyFundMonths: Number(e.target.value) })}
+                    className="bg-[#0a0a0a] border-white/[0.06] h-9 text-sm"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-[#555]">Limite Cartão/Renda (%)</Label>
+                  <Input
+                    type="number"
+                    value={((user?.user_metadata?.maxDebtRatio ?? 0.3) * 100).toString()}
+                    onChange={(e) => updateUserMetadata({ maxDebtRatio: Number(e.target.value) / 100 })}
+                    className="bg-[#0a0a0a] border-white/[0.06] h-9 text-sm"
+                  />
+                </div>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
         </div>
 
         {/* Card Dica IA */}

@@ -14,7 +14,7 @@ import { useProductivity } from '@/hooks/useProductivity';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { YoutubePlayerDialog } from './YoutubePlayerDialog';
-import { Textarea } from '@/components/ui/textarea';
+import { ObsidianDocEditor } from './ObsidianDocEditor';
 import {
     Dialog,
     DialogContent,
@@ -474,7 +474,6 @@ const StrategicView: React.FC = () => {
                                         </div>
                                         <Button variant="ghost" size="icon" onClick={() => deleteProject(project.id)}><Trash2 className="w-4 h-4 text-muted-foreground" /></Button>
                                     </div>
-                                    <Progress value={project.status === 'completed' ? 100 : 0} className="h-1.5 bg-white/[0.03]" />
                                 </div>
                             ))}
                         </div>
@@ -566,14 +565,38 @@ const StrategicView: React.FC = () => {
                                     <Button variant="ghost" size="sm" onClick={() => setActiveFileId(null)} className="h-8 -ml-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-white">
                                         <ArrowLeft className="w-3.5 h-3.5 mr-2" /> Voltar
                                     </Button>
-                                    <div className="bg-white/[0.01] border border-white/[0.05] rounded-[32px] p-8">
-                                        <Textarea
-                                            value={noteDraft}
-                                            onChange={(e) => setNoteDraft(e.target.value)}
-                                            placeholder="Escreva seus insights..."
-                                            className="min-h-[400px] bg-transparent border-none text-base focus-visible:ring-0 resize-none p-0 text-white/80"
-                                        />
-                                    </div>
+                                    <ObsidianDocEditor
+                                        value={noteDraft}
+                                        onChange={setNoteDraft}
+                                        onSave={handleSaveFileContent}
+                                        onOpenWikiLink={(docId) => {
+                                            const doc = fileSystem.find((i) => i.id === docId);
+                                            if (doc && doc.type === 'file') {
+                                                setActiveFileId(doc.id);
+                                                setNoteDraft(doc.content || '');
+                                            }
+                                        }}
+                                        onRequestCreateDoc={(docName) => {
+                                            const newItem: DocItem = {
+                                                id: Math.random().toString(36).substr(2, 9),
+                                                name: docName.trim() || 'Novo Documento',
+                                                type: 'file',
+                                                content: '',
+                                                parentId: currentFolderId,
+                                                createdAt: Date.now(),
+                                            };
+                                            const updated = [...fileSystem, newItem];
+                                            setFileSystem(updated);
+                                            persistFileSystem(updated);
+                                            setActiveFileId(newItem.id);
+                                            setNoteDraft('');
+                                            toast.success(`Documento "${newItem.name}" criado.`);
+                                        }}
+                                        allItems={fileSystem}
+                                        currentDocName={fileSystem.find((i) => i.id === activeFileId)?.name ?? ''}
+                                        currentDocId={activeFileId}
+                                        placeholder="Digite aqui... Use os botões para negrito, itálico, título, listas e links entre documentos."
+                                    />
                                 </div>
                             ) : (
                                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -609,11 +632,24 @@ const StrategicView: React.FC = () => {
                                                     )}
                                                 </div>
                                             </div>
-                                            <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100">
-                                                <Button size="icon" variant="ghost" className="h-7 w-7 rounded-full hover:bg-white/10" onClick={(e) => { e.stopPropagation(); setEditingDocId(item.id); setEditNameValue(item.name); }}>
+                                            <div className="absolute top-2 right-2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    className="h-7 px-2 rounded-lg hover:bg-white/10 text-[9px] font-bold uppercase tracking-wider gap-1"
+                                                    title={item.type === 'folder' ? 'Renomear pasta' : 'Renomear documento'}
+                                                    onClick={(e) => { e.stopPropagation(); setEditingDocId(item.id); setEditNameValue(item.name); }}
+                                                >
                                                     <Pencil className="w-3 h-3" />
+                                                    Renomear
                                                 </Button>
-                                                <Button size="icon" variant="ghost" className="h-7 w-7 rounded-full hover:bg-red-500/20 hover:text-red-500" onClick={(e) => { e.stopPropagation(); handleDeleteItem(item.id); }}>
+                                                <Button
+                                                    size="icon"
+                                                    variant="ghost"
+                                                    className="h-7 w-7 rounded-full hover:bg-red-500/20 hover:text-red-500"
+                                                    title="Excluir"
+                                                    onClick={(e) => { e.stopPropagation(); handleDeleteItem(item.id); }}
+                                                >
                                                     <Trash2 className="w-3 h-3" />
                                                 </Button>
                                             </div>

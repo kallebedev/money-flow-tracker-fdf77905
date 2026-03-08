@@ -4,7 +4,6 @@ import EisenhowerMatrix from "@/components/productivity/EisenhowerMatrix";
 import DailyPlanner from "@/components/productivity/DailyPlanner";
 import ProductivityTaskForm from "@/components/productivity/ProductivityTaskForm";
 import StrategicView from "@/components/productivity/StrategicView";
-import PersonalLogView from "@/components/productivity/PersonalLogView";
 import FocusMode from "@/components/productivity/FocusMode";
 import ConcentrationMetrics from "@/components/productivity/ConcentrationMetrics";
 import { ProductivityDashboard } from "@/components/productivity/ProductivityDashboard";
@@ -53,9 +52,6 @@ export default function Productivity() {
                             </TabsTrigger>
                             <TabsTrigger value="tactical" className="px-3 md:px-4 data-[state=active]:bg-primary rounded-lg text-[9px] md:text-[10px] font-black uppercase tracking-widest text-nowrap">
                                 2. Tático
-                            </TabsTrigger>
-                            <TabsTrigger value="personal" className="px-3 md:px-4 data-[state=active]:bg-primary rounded-lg text-[9px] md:text-[10px] font-black uppercase tracking-widest text-nowrap">
-                                3. Pessoal
                             </TabsTrigger>
                         </TabsList>
                     </div>
@@ -132,9 +128,6 @@ export default function Productivity() {
                     </div>
                 </TabsContent>
 
-                <TabsContent value="personal" className="animate-in fade-in duration-500">
-                    <PersonalLogView />
-                </TabsContent>
             </Tabs>
         </div>
     );

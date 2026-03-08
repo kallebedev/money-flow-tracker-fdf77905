@@ -17,9 +17,11 @@ const AMBIENT_SOUNDS = [
 interface FocusModeProps {
     onClose: () => void;
     activeTaskId?: string;
+    /** Chamado quando uma sessão de foco é concluída (bloco completo ou parcial ao fechar) */
+    onSessionComplete?: (durationMinutes: number) => void;
 }
 
-const FocusMode: React.FC<FocusModeProps> = ({ onClose, activeTaskId }) => {
+const FocusMode: React.FC<FocusModeProps> = ({ onClose, activeTaskId, onSessionComplete }) => {
     const { tasks } = useProductivity();
     const activeTask = tasks.find(t => t.id === activeTaskId);
 
@@ -39,6 +41,9 @@ const FocusMode: React.FC<FocusModeProps> = ({ onClose, activeTaskId }) => {
             interval = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
         } else if (timeLeft === 0) {
             const nextMode = mode === 'work' ? 'break' : 'work';
+            if (mode === 'work') {
+                onSessionComplete?.(25);
+            }
             setMode(nextMode);
             setTimeLeft(nextMode === 'work' ? 25 * 60 : 5 * 60);
             setIsActive(false);
@@ -71,6 +76,10 @@ const FocusMode: React.FC<FocusModeProps> = ({ onClose, activeTaskId }) => {
     }, []);
 
     const handleClose = async () => {
+        if (mode === 'work') {
+            const workMinutesElapsed = Math.floor((25 * 60 - timeLeft) / 60);
+            if (workMinutesElapsed > 0) onSessionComplete?.(workMinutesElapsed);
+        }
         if (document.fullscreenElement) {
             try {
                 await document.exitFullscreen();

@@ -5,8 +5,10 @@ import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { ProductivityTask } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus } from 'lucide-react';
-import { formatISO, addHours, startOfToday, format } from 'date-fns';
+import { Plus, Calendar, CalendarClock } from 'lucide-react';
+import { formatISO, format } from 'date-fns';
+
+type ScheduleMode = 'none' | 'date_only' | 'date_time';
 
 interface ProductivityTaskFormProps {
     onAdd: (task: Omit<ProductivityTask, 'id' | 'createdAt'>) => void;
@@ -17,6 +19,7 @@ const ProductivityTaskForm: React.FC<ProductivityTaskFormProps> = ({ onAdd }) =>
     const [impact, setImpact] = useState([5]);
     const [urgency, setUrgency] = useState([5]);
     const [duration, setDuration] = useState('30');
+    const [scheduleMode, setScheduleMode] = useState<ScheduleMode>('date_time');
     const [startDate, setStartDate] = useState(format(new Date(), 'yyyy-MM-dd'));
     const [startTime, setStartTime] = useState('09:00');
 
@@ -24,20 +27,24 @@ const ProductivityTaskForm: React.FC<ProductivityTaskFormProps> = ({ onAdd }) =>
         e.preventDefault();
         if (!title) return;
 
-        // Combine date and time correctly
-        const [year, month, day] = startDate.split('-').map(Number);
-        const [hours, minutes] = startTime.split(':').map(Number);
-
-        const scheduledDate = new Date(year, month - 1, day, hours, minutes);
-
-        onAdd({
+        const base = {
             title,
             impact: impact[0],
             urgency: urgency[0],
             estimatedDuration: parseInt(duration),
-            scheduledStartTime: formatISO(scheduledDate),
-            status: 'todo',
-        });
+            status: 'todo' as const,
+        };
+
+        if (scheduleMode === 'none') {
+            onAdd(base);
+        } else if (scheduleMode === 'date_only') {
+            onAdd({ ...base, scheduledStartTime: startDate });
+        } else {
+            const [year, month, day] = startDate.split('-').map(Number);
+            const [hours, minutes] = startTime.split(':').map(Number);
+            const scheduledDate = new Date(year, month - 1, day, hours, minutes);
+            onAdd({ ...base, scheduledStartTime: formatISO(scheduledDate) });
+        }
 
         setTitle('');
         setImpact([5]);
@@ -88,26 +95,60 @@ const ProductivityTaskForm: React.FC<ProductivityTaskFormProps> = ({ onAdd }) =>
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1">
-                            <Label className="text-[10px] uppercase font-bold text-muted-foreground">Data</Label>
-                            <Input
-                                type="date"
-                                value={startDate}
-                                onChange={(e) => setStartDate(e.target.value)}
-                                className="h-8 text-xs bg-background/50"
-                            />
-                        </div>
-                        <div className="space-y-1">
-                            <Label className="text-[10px] uppercase font-bold text-muted-foreground">Horário</Label>
-                            <Input
-                                type="time"
-                                value={startTime}
-                                onChange={(e) => setStartTime(e.target.value)}
-                                className="h-8 text-xs bg-background/50"
-                            />
+                    <div className="space-y-2">
+                        <Label className="text-[10px] uppercase font-bold text-muted-foreground">Quando realizar?</Label>
+                        <div className="grid grid-cols-3 gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setScheduleMode('none')}
+                                className={`flex flex-col items-center gap-1 rounded-lg border p-2.5 text-[10px] font-medium transition-colors ${scheduleMode === 'none' ? 'border-primary bg-primary/20 text-primary' : 'border-white/[0.06] bg-white/[0.02] text-muted-foreground hover:border-white/10'}`}
+                            >
+                                <Calendar className="w-4 h-4" />
+                                Sem previsão
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setScheduleMode('date_only')}
+                                className={`flex flex-col items-center gap-1 rounded-lg border p-2.5 text-[10px] font-medium transition-colors ${scheduleMode === 'date_only' ? 'border-primary bg-primary/20 text-primary' : 'border-white/[0.06] bg-white/[0.02] text-muted-foreground hover:border-white/10'}`}
+                            >
+                                <Calendar className="w-4 h-4" />
+                                Só data
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setScheduleMode('date_time')}
+                                className={`flex flex-col items-center gap-1 rounded-lg border p-2.5 text-[10px] font-medium transition-colors ${scheduleMode === 'date_time' ? 'border-primary bg-primary/20 text-primary' : 'border-white/[0.06] bg-white/[0.02] text-muted-foreground hover:border-white/10'}`}
+                            >
+                                <CalendarClock className="w-4 h-4" />
+                                Data e hora
+                            </button>
                         </div>
                     </div>
+
+                    {(scheduleMode === 'date_only' || scheduleMode === 'date_time') && (
+                        <div className={`grid gap-4 ${scheduleMode === 'date_time' ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                            <div className="space-y-1">
+                                <Label className="text-[10px] uppercase font-bold text-muted-foreground">Data</Label>
+                                <Input
+                                    type="date"
+                                    value={startDate}
+                                    onChange={(e) => setStartDate(e.target.value)}
+                                    className="h-8 text-xs bg-background/50"
+                                />
+                            </div>
+                            {scheduleMode === 'date_time' && (
+                                <div className="space-y-1">
+                                    <Label className="text-[10px] uppercase font-bold text-muted-foreground">Horário</Label>
+                                    <Input
+                                        type="time"
+                                        value={startTime}
+                                        onChange={(e) => setStartTime(e.target.value)}
+                                        className="h-8 text-xs bg-background/50"
+                                    />
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     <div className="space-y-1">
                         <Label className="text-[10px] uppercase font-bold text-muted-foreground">Duração (min)</Label>

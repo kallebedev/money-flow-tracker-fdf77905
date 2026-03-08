@@ -32,7 +32,7 @@ export const useProductivity = () => {
                 impact: t.impact,
                 urgency: t.urgency,
                 estimatedDuration: t.estimated_duration,
-                scheduledStartTime: t.scheduled_start_time,
+                scheduledStartTime: t.scheduled_start_time ?? undefined,
                 status: t.status,
                 createdAt: t.created_at,
                 projectId: t.project_id,
@@ -116,7 +116,7 @@ export const useProductivity = () => {
                     impact: task.impact,
                     urgency: task.urgency,
                     estimated_duration: task.estimatedDuration,
-                    scheduled_start_time: task.scheduledStartTime,
+                    scheduled_start_time: task.scheduledStartTime ?? null,
                     status: task.status,
                     project_id: task.projectId,
                     is_top_three: task.isTopThree

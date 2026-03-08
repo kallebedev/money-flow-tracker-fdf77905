@@ -42,7 +42,8 @@ export type ProductivityTask = {
   impact: number;
   urgency: number;
   estimatedDuration: number;
-  scheduledStartTime: string;
+  /** ISO date-time; omit for tasks without a scheduled time */
+  scheduledStartTime?: string | null;
   status: TaskStatus;
   createdAt: string;
   projectId?: string;
@@ -100,7 +101,7 @@ export interface FinancialGoal {
   name: string;
   targetAmount: number;
   currentAmount: number;
-  deadline: string; // ISO string
+  deadline?: string | null; // ISO string, opcional
 }
 
 export interface MonthlyBudget {

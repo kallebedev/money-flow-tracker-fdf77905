@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2, Target } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Plus, Pencil, Trash2, Target, Calendar } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { toast } from "sonner";
 
@@ -14,7 +15,7 @@ function formatCurrency(v: number) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
-const emptyForm = { name: "", targetAmount: "", currentAmount: "", deadline: "" };
+const emptyForm = { name: "", targetAmount: "", currentAmount: "", deadline: "", hasDeadline: false };
 
 export default function Goals() {
   const { goals, addGoal, updateGoal, deleteGoal } = useFinance();
@@ -30,19 +31,28 @@ export default function Goals() {
 
   function openEdit(g: typeof goals[0]) {
     setEditId(g.id);
-    setForm({ name: g.name, targetAmount: String(g.targetAmount), currentAmount: String(g.currentAmount), deadline: g.deadline.slice(0, 10) });
+    const hasDeadline = !!g.deadline;
+    setForm({
+      name: g.name,
+      targetAmount: String(g.targetAmount),
+      currentAmount: String(g.currentAmount),
+      deadline: hasDeadline && g.deadline ? g.deadline.slice(0, 10) : "",
+      hasDeadline
+    });
     setOpen(true);
   }
 
   function handleSave() {
     const target = parseFloat(form.targetAmount);
     const current = parseFloat(form.currentAmount) || 0;
-    if (!form.name || !target || !form.deadline) { toast.error("Preencha todos os campos"); return; }
+    if (!form.name || !target) { toast.error("Preencha nome e valor alvo"); return; }
+    if (form.hasDeadline && !form.deadline) { toast.error("Informe a data do prazo"); return; }
+    const deadline = form.hasDeadline && form.deadline ? form.deadline : null;
     if (editId) {
-      updateGoal(editId, { name: form.name, targetAmount: target, currentAmount: current, deadline: form.deadline });
+      updateGoal(editId, { name: form.name, targetAmount: target, currentAmount: current, deadline: deadline ?? undefined });
       toast.success("Meta atualizada!");
     } else {
-      addGoal({ name: form.name, targetAmount: target, currentAmount: current, deadline: form.deadline });
+      addGoal({ name: form.name, targetAmount: target, currentAmount: current, deadline: deadline ?? undefined });
       toast.success("Meta criada!");
     }
     setOpen(false);
@@ -62,7 +72,16 @@ export default function Goals() {
               <div><Label>Nome</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ex: Comprar notebook" /></div>
               <div><Label>Valor Alvo (R$)</Label><Input type="number" min="0" step="0.01" value={form.targetAmount} onChange={(e) => setForm({ ...form, targetAmount: e.target.value })} /></div>
               <div><Label>Valor Atual (R$)</Label><Input type="number" min="0" step="0.01" value={form.currentAmount} onChange={(e) => setForm({ ...form, currentAmount: e.target.value })} /></div>
-              <div><Label>Prazo</Label><Input type="date" value={form.deadline} onChange={(e) => setForm({ ...form, deadline: e.target.value })} /></div>
+              <div className="flex items-center justify-between gap-4 py-2">
+                <div className="space-y-1">
+                  <Label>Tenho prazo para conquistar</Label>
+                  <p className="text-xs text-muted-foreground">Defina uma data limite ou deixe sem prazo</p>
+                </div>
+                <Switch checked={form.hasDeadline} onCheckedChange={(v) => setForm({ ...form, hasDeadline: v, deadline: v ? form.deadline : "" })} />
+              </div>
+              {form.hasDeadline && (
+                <div><Label>Prazo</Label><Input type="date" value={form.deadline} onChange={(e) => setForm({ ...form, deadline: e.target.value })} /></div>
+              )}
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
@@ -94,7 +113,13 @@ export default function Goals() {
                       </div>
                       <div>
                         <p className="font-semibold">{g.name}</p>
-                        <p className="text-xs text-muted-foreground">Prazo: {format(parseISO(g.deadline), "dd/MM/yyyy")}</p>
+                        <p className="text-xs text-muted-foreground flex items-center gap-1">
+                          {g.deadline ? (
+                            <><Calendar className="w-3 h-3" /> Prazo: {format(parseISO(g.deadline), "dd/MM/yyyy")}</>
+                          ) : (
+                            <>Sem prazo definido</>
+                          )}
+                        </p>
                       </div>
                     </div>
                     <div className="flex gap-1">

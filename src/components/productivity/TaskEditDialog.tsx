@@ -6,6 +6,9 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { format, parseISO, formatISO } from 'date-fns';
+import { Calendar, CalendarClock } from 'lucide-react';
+
+type ScheduleMode = 'none' | 'date_only' | 'date_time';
 
 interface TaskEditDialogProps {
     task: ProductivityTask | null;
@@ -19,6 +22,7 @@ const TaskEditDialog: React.FC<TaskEditDialogProps> = ({ task, open, onOpenChang
     const [duration, setDuration] = useState('');
     const [impact, setImpact] = useState([5]);
     const [urgency, setUrgency] = useState([5]);
+    const [scheduleMode, setScheduleMode] = useState<ScheduleMode>('date_time');
     const [startDate, setStartDate] = useState(format(new Date(), 'yyyy-MM-dd'));
     const [startTime, setStartTime] = useState('09:00');
 
@@ -28,26 +32,46 @@ const TaskEditDialog: React.FC<TaskEditDialogProps> = ({ task, open, onOpenChang
             setDuration(task.estimatedDuration.toString());
             setImpact([task.impact]);
             setUrgency([task.urgency]);
-            const date = parseISO(task.scheduledStartTime);
-            setStartDate(format(date, 'yyyy-MM-dd'));
-            setStartTime(format(date, 'HH:mm'));
+            const st = task.scheduledStartTime;
+            if (!st) {
+                setScheduleMode('none');
+                setStartDate(format(new Date(), 'yyyy-MM-dd'));
+                setStartTime('09:00');
+            } else if (st.length === 10) {
+                setScheduleMode('date_only');
+                setStartDate(st);
+                setStartTime('09:00');
+            } else {
+                setScheduleMode('date_time');
+                const date = parseISO(st);
+                setStartDate(format(date, 'yyyy-MM-dd'));
+                setStartTime(format(date, 'HH:mm'));
+            }
         }
     }, [task]);
 
     const handleSave = () => {
         if (!task) return;
 
-        const [year, month, day] = startDate.split('-').map(Number);
-        const [hours, minutes] = startTime.split(':').map(Number);
-        const date = new Date(year, month - 1, day, hours, minutes);
-
-        onSave(task.id, {
+        const updates: Partial<ProductivityTask> = {
             title,
             estimatedDuration: parseInt(duration) || task.estimatedDuration,
             impact: impact[0],
             urgency: urgency[0],
-            scheduledStartTime: formatISO(date)
-        });
+        };
+
+        if (scheduleMode === 'none') {
+            updates.scheduledStartTime = null;
+        } else if (scheduleMode === 'date_only') {
+            updates.scheduledStartTime = startDate;
+        } else {
+            const [year, month, day] = startDate.split('-').map(Number);
+            const [hours, minutes] = startTime.split(':').map(Number);
+            const date = new Date(year, month - 1, day, hours, minutes);
+            updates.scheduledStartTime = formatISO(date);
+        }
+
+        onSave(task.id, updates);
         onOpenChange(false);
     };
 
@@ -67,26 +91,60 @@ const TaskEditDialog: React.FC<TaskEditDialogProps> = ({ task, open, onOpenChang
                         />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1">
-                            <Label className="text-[10px] uppercase font-bold text-[#555]">Data</Label>
-                            <Input
-                                type="date"
-                                value={startDate}
-                                onChange={(e) => setStartDate(e.target.value)}
-                                className="bg-[#0a0a0a] border-white/[0.03] text-[#f0f0f0] h-10"
-                            />
-                        </div>
-                        <div className="space-y-1">
-                            <Label className="text-[10px] uppercase font-bold text-[#555]">Horário</Label>
-                            <Input
-                                type="time"
-                                value={startTime}
-                                onChange={(e) => setStartTime(e.target.value)}
-                                className="bg-[#0a0a0a] border-white/[0.03] text-[#f0f0f0] h-10"
-                            />
+                    <div className="space-y-2">
+                        <Label className="text-[10px] uppercase font-bold text-[#555]">Quando realizar?</Label>
+                        <div className="grid grid-cols-3 gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setScheduleMode('none')}
+                                className={`flex flex-col items-center gap-1 rounded-lg border p-2.5 text-[10px] font-medium transition-colors ${scheduleMode === 'none' ? 'border-[#22c55e] bg-[#22c55e]/20 text-[#22c55e]' : 'border-white/[0.06] bg-white/[0.02] text-[#555] hover:border-white/10'}`}
+                            >
+                                <Calendar className="w-4 h-4" />
+                                Sem previsão
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setScheduleMode('date_only')}
+                                className={`flex flex-col items-center gap-1 rounded-lg border p-2.5 text-[10px] font-medium transition-colors ${scheduleMode === 'date_only' ? 'border-[#22c55e] bg-[#22c55e]/20 text-[#22c55e]' : 'border-white/[0.06] bg-white/[0.02] text-[#555] hover:border-white/10'}`}
+                            >
+                                <Calendar className="w-4 h-4" />
+                                Só data
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setScheduleMode('date_time')}
+                                className={`flex flex-col items-center gap-1 rounded-lg border p-2.5 text-[10px] font-medium transition-colors ${scheduleMode === 'date_time' ? 'border-[#22c55e] bg-[#22c55e]/20 text-[#22c55e]' : 'border-white/[0.06] bg-white/[0.02] text-[#555] hover:border-white/10'}`}
+                            >
+                                <CalendarClock className="w-4 h-4" />
+                                Data e hora
+                            </button>
                         </div>
                     </div>
+
+                    {(scheduleMode === 'date_only' || scheduleMode === 'date_time') && (
+                        <div className={`grid gap-4 ${scheduleMode === 'date_time' ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                            <div className="space-y-1">
+                                <Label className="text-[10px] uppercase font-bold text-[#555]">Data</Label>
+                                <Input
+                                    type="date"
+                                    value={startDate}
+                                    onChange={(e) => setStartDate(e.target.value)}
+                                    className="bg-[#0a0a0a] border-white/[0.03] text-[#f0f0f0] h-10"
+                                />
+                            </div>
+                            {scheduleMode === 'date_time' && (
+                                <div className="space-y-1">
+                                    <Label className="text-[10px] uppercase font-bold text-[#555]">Horário</Label>
+                                    <Input
+                                        type="time"
+                                        value={startTime}
+                                        onChange={(e) => setStartTime(e.target.value)}
+                                        className="bg-[#0a0a0a] border-white/[0.03] text-[#f0f0f0] h-10"
+                                    />
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     <div className="space-y-1">
                         <Label className="text-[10px] uppercase font-bold text-[#555]">Duração (min)</Label>

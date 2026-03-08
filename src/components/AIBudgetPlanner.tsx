@@ -1,94 +1,104 @@
-import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
     Dialog,
     DialogContent,
-    DialogDescription,
     DialogHeader,
     DialogTitle,
     DialogTrigger,
 } from "@/components/ui/dialog";
 import { useFinance } from "@/contexts/FinanceContext";
-import { useAIBudgetAdvisor, BudgetProfileData } from "@/hooks/useAIBudgetAdvisor";
-import { Brain, Sparkles, Check, ArrowRight, Lightbulb, Trash2, ArrowLeft } from "lucide-react";
+import { useAIPlanFromQuestionnaire, FinancialPlanQuestionnaire } from "@/hooks/useAIBudgetAdvisor";
+import { Brain, Sparkles, Check, ArrowRight, Lightbulb, ArrowLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import confetti from "canvas-confetti";
+import { Progress } from "@/components/ui/progress";
 
-type Step = "salary" | "profile" | "advice";
+const TOTAL_STEPS = 9;
 
 export function AIBudgetPlanner() {
     const { monthlySalary, setMonthlySalary, updateCategory, categories } = useFinance();
-    const [step, setStep] = useState<Step>(monthlySalary > 0 ? "profile" : "salary");
-    const [profileData, setProfileData] = useState<BudgetProfileData>({
+    const [open, setOpen] = useState(false);
+    const [step, setStep] = useState(1);
+    const [questionnaire, setQuestionnaire] = useState<Partial<FinancialPlanQuestionnaire>>({
+        monthlySalary: monthlySalary || undefined,
+        hasDebt: false,
+        hasEmergencyFund: false,
         goal: "moderate",
         lifestyle: "comfortable",
-        priority: "essentials"
+        priority: "essentials",
     });
-    const [triggerAI, setTriggerAI] = useState(false);
-    const { advisor, isLoading: isAILoading, error: aiError } = useAIBudgetAdvisor(profileData, triggerAI);
-    const [tempSalary, setTempSalary] = useState(monthlySalary > 0 ? monthlySalary.toString() : "");
-    const [open, setOpen] = useState(false);
+    const { advisor, isLoading: isAILoading, error: aiError, generatePlan, resetPlan } = useAIPlanFromQuestionnaire();
 
-    const handleGenerateAdvice = () => {
-        setTriggerAI(true);
-        setStep("advice");
+    useEffect(() => {
+        if (open) {
+            setQuestionnaire(prev => ({ ...prev, monthlySalary: monthlySalary || undefined }));
+            if (!advisor) setStep(1);
+        }
+    }, [open, monthlySalary]);
+
+    const update = (data: Partial<FinancialPlanQuestionnaire>) => setQuestionnaire(prev => ({ ...prev, ...data }));
+
+    const handleNext = () => {
+        if (step === 1) {
+            const v = questionnaire.monthlySalary ?? 0;
+            if (v <= 0) {
+                toast.error("Informe seu salário mensal.");
+                return;
+            }
+            setMonthlySalary(v);
+        }
+        if (step < TOTAL_STEPS) setStep(step + 1);
     };
 
-    const handleSaveSalary = () => {
-        const s = parseFloat(tempSalary);
-        if (isNaN(s) || s < 0) {
-            toast.error("Salário inválido");
+    const handleBack = () => {
+        if (step > 1) setStep(step - 1);
+    };
+
+    const handleGenerate = () => {
+        const q = questionnaire as FinancialPlanQuestionnaire;
+        if (!q.monthlySalary || q.monthlySalary <= 0) {
+            toast.error("Salário é obrigatório.");
             return;
         }
-        setMonthlySalary(s);
-        setStep("profile");
-        toast.success("Salário atualizado!");
-    };
-
-    const handleRemoveSalary = () => {
-        setMonthlySalary(0);
-        setTempSalary("");
-        setStep("salary");
-        toast.success("Salário removido!");
+        generatePlan({
+            monthlySalary: q.monthlySalary,
+            otherIncome: q.otherIncome,
+            fixedExpenses: q.fixedExpenses,
+            hasDebt: q.hasDebt ?? false,
+            debtMonthlyPayment: q.debtMonthlyPayment,
+            emergencyFundMonths: q.emergencyFundMonths,
+            hasEmergencyFund: q.hasEmergencyFund ?? false,
+            goal: q.goal ?? "moderate",
+            lifestyle: q.lifestyle ?? "comfortable",
+            priority: q.priority ?? "essentials",
+            goalsShortTerm: q.goalsShortTerm,
+            goalsLongTerm: q.goalsLongTerm,
+        });
     };
 
     const applySuggestions = async () => {
         if (!advisor) return;
-
         try {
             const promises = advisor.categoryAdvice
                 .filter(advice => advice.suggestedAmount > 0)
-                .map(advice =>
-                    updateCategory(advice.categoryId, { monthlyBudget: advice.suggestedAmount })
-                );
-
+                .map(advice => updateCategory(advice.categoryId, { monthlyBudget: advice.suggestedAmount }));
             await Promise.all(promises);
             setOpen(false);
-            confetti({
-                particleCount: 150,
-                spread: 70,
-                origin: { y: 0.6 },
-                colors: ['#22c55e', '#3b82f6', '#f59e0b']
-            });
+            confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 }, colors: ['#22c55e', '#3b82f6', '#f59e0b'] });
             toast.success("Orçamentos aplicados com sucesso!");
         } catch (error) {
-            console.error("Error applying suggestions:", error);
             toast.error("Erro ao aplicar orçamentos");
         }
     };
 
+    const progressPct = (step / TOTAL_STEPS) * 100;
+
     return (
-        <Dialog open={open} onOpenChange={(val) => {
-            setOpen(val);
-            if (!val && monthlySalary > 0) {
-                // Reset to profile step when closing if salary is set
-                setStep("profile");
-            }
-        }}>
+        <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
                 <Button variant="outline" className="h-10 px-4 rounded-xl border-primary/10 bg-primary/2 hover:bg-primary/5 text-primary font-bold transition-all hover:scale-105">
                     <Brain className="mr-2 h-5 w-5" /> Planejador IA
@@ -100,230 +110,348 @@ export function AIBudgetPlanner() {
                         <div className="h-8 w-8 rounded-lg bg-primary/20 flex items-center justify-center">
                             <Brain className="h-5 w-5 text-primary" />
                         </div>
-                        <DialogTitle className="text-xl font-bold">Planejador com IA</DialogTitle>
+                        <DialogTitle className="text-xl font-bold">Plano de Controle Financeiro</DialogTitle>
                     </div>
+                    {step <= TOTAL_STEPS && (
+                        <div className="space-y-2">
+                            <div className="flex justify-between text-xs text-muted-foreground">
+                                <span>Pergunta {step} de {TOTAL_STEPS}</span>
+                                <span>{Math.round(progressPct)}%</span>
+                            </div>
+                            <Progress value={progressPct} className="h-1.5" />
+                        </div>
+                    )}
                 </DialogHeader>
 
                 <div className="space-y-6 pt-2">
-                    {step === "salary" && (
-                        <div className="flex flex-col items-center justify-center space-y-8 py-10 animate-in fade-in zoom-in-95 duration-500 text-center">
-                            <div className="space-y-2 max-w-sm">
-                                <p className="text-muted-foreground text-sm font-medium">Para começarmos a planejar sua liberdade financeira, qual foi o seu último salário recebido?</p>
+                    {/* Step 1: Renda */}
+                    {step === 1 && (
+                        <div className="space-y-6 animate-in fade-in duration-300">
+                            <p className="text-sm text-muted-foreground">Para montarmos seu plano, precisamos conhecer sua situação financeira.</p>
+                            <div className="space-y-3">
+                                <Label className="text-xs font-black uppercase tracking-widest text-primary/70">Salário mensal (líquido) *</Label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">R$</span>
+                                    <Input
+                                        type="number"
+                                        min="0"
+                                        step="100"
+                                        value={questionnaire.monthlySalary ?? ""}
+                                        onChange={(e) => update({ monthlySalary: parseFloat(e.target.value) || undefined })}
+                                        className="pl-10 h-12 text-lg font-bold rounded-xl"
+                                        placeholder="0,00"
+                                    />
+                                </div>
                             </div>
+                            <div className="space-y-3">
+                                <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground">Outras fontes de renda (opcional)</Label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">R$</span>
+                                    <Input
+                                        type="number"
+                                        min="0"
+                                        step="100"
+                                        value={questionnaire.otherIncome ?? ""}
+                                        onChange={(e) => update({ otherIncome: parseFloat(e.target.value) || undefined })}
+                                        className="pl-10 rounded-xl"
+                                        placeholder="Freelas, aluguéis, etc."
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
-                            <div className="w-full max-w-sm space-y-6">
-                                <div className="space-y-3">
-                                    <Label htmlFor="salary" className="text-xs font-black uppercase tracking-widest text-primary/70">Seu Salário Mensal</Label>
-                                    <div className="group relative">
-                                        <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none transition-colors group-focus-within:text-primary">
-                                            <span className="text-lg font-bold">R$</span>
-                                        </div>
+                    {/* Step 2: Gastos fixos */}
+                    {step === 2 && (
+                        <div className="space-y-6 animate-in fade-in duration-300">
+                            <p className="text-sm text-muted-foreground">Quanto você gasta por mês com itens fixos? (moradia, transporte, contas, assinaturas)</p>
+                            <div className="space-y-3">
+                                <Label className="text-xs font-black uppercase tracking-widest text-primary/70">Gastos fixos mensais (R$)</Label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">R$</span>
+                                    <Input
+                                        type="number"
+                                        min="0"
+                                        step="50"
+                                        value={questionnaire.fixedExpenses ?? ""}
+                                        onChange={(e) => update({ fixedExpenses: parseFloat(e.target.value) || undefined })}
+                                        className="pl-10 h-12 rounded-xl"
+                                        placeholder="Ex: 2500"
+                                    />
+                                </div>
+                                <p className="text-[10px] text-muted-foreground">Se não souber, pode deixar em branco. A IA vai estimar.</p>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Step 3: Dívidas */}
+                    {step === 3 && (
+                        <div className="space-y-6 animate-in fade-in duration-300">
+                            <p className="text-sm text-muted-foreground">Você possui dívidas ou parcelas fixas no momento?</p>
+                            <div className="flex gap-3">
+                                <Button
+                                    variant={questionnaire.hasDebt ? "default" : "outline"}
+                                    className="flex-1 rounded-xl"
+                                    onClick={() => update({ hasDebt: true })}
+                                >
+                                    Sim
+                                </Button>
+                                <Button
+                                    variant={!questionnaire.hasDebt ? "default" : "outline"}
+                                    className="flex-1 rounded-xl"
+                                    onClick={() => update({ hasDebt: false, debtMonthlyPayment: undefined })}
+                                >
+                                    Não
+                                </Button>
+                            </div>
+                            {questionnaire.hasDebt && (
+                                <div className="space-y-3 pt-2">
+                                    <Label className="text-xs font-black uppercase tracking-widest">Valor total das parcelas por mês (R$)</Label>
+                                    <div className="relative">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">R$</span>
                                         <Input
-                                            id="salary"
                                             type="number"
-                                            value={tempSalary}
-                                            onChange={(e) => setTempSalary(e.target.value)}
-                                            className="pl-12 h-16 text-2xl font-black bg-white/[0.02] border-2 border-primary/10 rounded-2xl focus:border-primary/40 focus:ring-4 focus:ring-primary/5 transition-all placeholder:text-muted-foreground/30"
-                                            placeholder="0,00"
+                                            min="0"
+                                            step="50"
+                                            value={questionnaire.debtMonthlyPayment ?? ""}
+                                            onChange={(e) => update({ debtMonthlyPayment: parseFloat(e.target.value) || undefined })}
+                                            className="pl-10 rounded-xl"
+                                            placeholder="Ex: 800"
                                         />
                                     </div>
                                 </div>
+                            )}
+                        </div>
+                    )}
 
-                                <div className="flex flex-col gap-4">
-                                    <Button
-                                        onClick={handleSaveSalary}
-                                        className="h-14 w-full rounded-2xl font-black uppercase tracking-widest text-sm transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-primary/20"
-                                    >
-                                        Continuar para o Perfil <ArrowRight className="ml-2 h-5 w-5" />
-                                    </Button>
-                                    <Button
-                                        variant="ghost"
-                                        onClick={() => {
-                                            const s = parseFloat(tempSalary);
-                                            if (isNaN(s) || s < 0) {
-                                                toast.error("Salário inválido");
-                                                return;
-                                            }
-                                            setMonthlySalary(s);
-                                            setOpen(false);
-                                            toast.success("Salário salvo e orçamento registrado.");
-                                        }}
-                                        className="text-[10px] font-black uppercase tracking-widest py-2 text-muted-foreground hover:text-foreground hover:bg-white/5 rounded-xl transition-colors"
-                                    >
-                                        Pular instruções da IA (Apenas salvar)
-                                    </Button>
+                    {/* Step 4: Reserva de emergência */}
+                    {step === 4 && (
+                        <div className="space-y-6 animate-in fade-in duration-300">
+                            <p className="text-sm text-muted-foreground">Você já possui uma reserva de emergência?</p>
+                            <div className="flex gap-3">
+                                <Button
+                                    variant={questionnaire.hasEmergencyFund ? "default" : "outline"}
+                                    className="flex-1 rounded-xl"
+                                    onClick={() => update({ hasEmergencyFund: true })}
+                                >
+                                    Sim
+                                </Button>
+                                <Button
+                                    variant={!questionnaire.hasEmergencyFund ? "default" : "outline"}
+                                    className="flex-1 rounded-xl"
+                                    onClick={() => update({ hasEmergencyFund: false, emergencyFundMonths: undefined })}
+                                >
+                                    Não
+                                </Button>
+                            </div>
+                            {questionnaire.hasEmergencyFund && (
+                                <div className="space-y-3 pt-2">
+                                    <Label className="text-xs font-black uppercase tracking-widest">Quantos meses de gastos sua reserva cobre?</Label>
+                                    <Input
+                                        type="number"
+                                        min="1"
+                                        max="24"
+                                        value={questionnaire.emergencyFundMonths ?? ""}
+                                        onChange={(e) => update({ emergencyFundMonths: parseInt(e.target.value, 10) || undefined })}
+                                        className="rounded-xl"
+                                        placeholder="Ex: 6"
+                                    />
                                 </div>
+                            )}
+                            {!questionnaire.hasEmergencyFund && (
+                                <p className="text-[10px] text-muted-foreground">O plano vai sugerir priorizar a formação da reserva.</p>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Step 5: Meta principal */}
+                    {step === 5 && (
+                        <div className="space-y-6 animate-in fade-in duration-300">
+                            <p className="text-sm text-muted-foreground">Qual sua meta financeira principal no momento?</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                {[
+                                    { id: "debt" as const, label: "Quitar dívidas", icon: "💸" },
+                                    { id: "moderate" as const, label: "Equilíbrio", icon: "⚖️" },
+                                    { id: "savings" as const, label: "Investir / Poupar", icon: "🚀" },
+                                ].map((opt) => (
+                                    <Button
+                                        key={opt.id}
+                                        variant={questionnaire.goal === opt.id ? "default" : "outline"}
+                                        onClick={() => update({ goal: opt.id })}
+                                        className="h-auto py-4 flex flex-col gap-1 rounded-xl"
+                                    >
+                                        <span className="text-2xl">{opt.icon}</span>
+                                        <span className="text-xs font-bold">{opt.label}</span>
+                                    </Button>
+                                ))}
                             </div>
                         </div>
                     )}
 
-                    {step === "profile" && (
-                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                            <div className="flex items-center justify-between">
-                                <p className="text-muted-foreground text-sm">Conte um pouco sobre seu perfil financeiro:</p>
-                                <Button variant="ghost" size="sm" onClick={() => setStep("salary")} className="text-xs h-8">
-                                    <ArrowLeft className="mr-1 h-4 w-4" /> Alterar Salário
-                                </Button>
-                            </div>
-
-                            <div className="grid gap-6">
-                                <div className="space-y-3">
-                                    <Label className="text-sm font-bold">Qual sua meta principal no momento?</Label>
-                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                                        {[
-                                            { id: "debt", label: "Quitar Dívidas", icon: "💸" },
-                                            { id: "moderate", label: "Equilíbrio", icon: "⚖️" },
-                                            { id: "savings", label: "Investir/Poupar", icon: "🚀" }
-                                        ].map((opt) => (
-                                            <Button
-                                                key={opt.id}
-                                                variant={profileData.goal === opt.id ? "default" : "outline"}
-                                                onClick={() => setProfileData({ ...profileData, goal: opt.id as any })}
-                                                className="h-auto py-3 px-4 flex flex-col items-center gap-1 rounded-xl"
-                                            >
-                                                <span className="text-xl">{opt.icon}</span>
-                                                <span className="text-xs font-bold">{opt.label}</span>
-                                            </Button>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                <div className="space-y-3">
-                                    <Label className="text-sm font-bold">Como você descreveria seu estilo de vida?</Label>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                        {[
-                                            { id: "frugal", label: "Frugal (Economizo ao máximo)", desc: "Menos gastos com lazer" },
-                                            { id: "comfortable", label: "Confortável (Equilibrado)", desc: "Gastos moderados com lazer" }
-                                        ].map((opt) => (
-                                            <Button
-                                                key={opt.id}
-                                                variant={profileData.lifestyle === opt.id ? "default" : "outline"}
-                                                onClick={() => setProfileData({ ...profileData, lifestyle: opt.id as any })}
-                                                className="h-auto py-3 px-4 flex flex-col items-start gap-0.5 rounded-xl text-left"
-                                            >
-                                                <span className="text-xs font-bold">{opt.label}</span>
-                                                <span className="text-[10px] opacity-70 font-normal">{opt.desc}</span>
-                                            </Button>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                <div className="space-y-3">
-                                    <Label className="text-sm font-bold">O que é prioridade absoluta hoje?</Label>
-                                    <div className="flex flex-wrap gap-2">
-                                        {[
-                                            { id: "essentials", label: "Essencial" },
-                                            { id: "future", label: "Meu Futuro" },
-                                            { id: "lifestyle", label: "Meu Lazer" }
-                                        ].map((opt) => (
-                                            <Button
-                                                key={opt.id}
-                                                variant={profileData.priority === opt.id ? "secondary" : "outline"}
-                                                onClick={() => setProfileData({ ...profileData, priority: opt.id as any })}
-                                                className={cn(
-                                                    "h-9 px-4 rounded-full text-xs font-bold",
-                                                    profileData.priority === opt.id && "bg-primary text-primary-foreground hover:bg-primary/90"
-                                                )}
-                                            >
-                                                {opt.label}
-                                            </Button>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="flex flex-col gap-3">
-                                <Button
-                                    onClick={handleGenerateAdvice}
-                                    className="w-full h-12 rounded-xl font-bold bg-primary hover:bg-primary/90 transition-all hover:scale-[1.02]"
-                                >
-                                    Gerar Orçamento Personalizado <Sparkles className="ml-2 h-5 w-5" />
-                                </Button>
-                                <Button
-                                    variant="ghost"
-                                    onClick={() => setOpen(false)}
-                                    className="text-xs text-muted-foreground hover:text-foreground"
-                                >
-                                    Não quero instruções da IA agora
-                                </Button>
+                    {/* Step 6: Estilo de vida */}
+                    {step === 6 && (
+                        <div className="space-y-6 animate-in fade-in duration-300">
+                            <p className="text-sm text-muted-foreground">Como você descreveria seu estilo de vida em relação a gastos?</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                {[
+                                    { id: "frugal" as const, label: "Frugal", desc: "Economizo ao máximo" },
+                                    { id: "comfortable" as const, label: "Confortável", desc: "Equilibrado entre economia e lazer" },
+                                    { id: "custom" as const, label: "Flexível", desc: "Varia conforme o mês" },
+                                ].map((opt) => (
+                                    <Button
+                                        key={opt.id}
+                                        variant={questionnaire.lifestyle === opt.id ? "default" : "outline"}
+                                        onClick={() => update({ lifestyle: opt.id })}
+                                        className="h-auto py-3 px-4 flex flex-col items-start gap-0.5 rounded-xl text-left"
+                                    >
+                                        <span className="text-xs font-bold">{opt.label}</span>
+                                        <span className="text-[10px] opacity-70">{opt.desc}</span>
+                                    </Button>
+                                ))}
                             </div>
                         </div>
                     )}
 
-                    {step === "advice" && (
-                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                            <div className="flex items-center justify-between">
-                                <h3 className="font-bold flex items-center gap-2">
-                                    <Sparkles className="h-5 w-5 text-primary" /> Sugestão da IA
-                                </h3>
-                                <Button variant="ghost" size="sm" onClick={() => {
-                                    setStep("profile");
-                                    setTriggerAI(false);
-                                }} className="text-xs h-8">
-                                    <ArrowLeft className="mr-1 h-4 w-4" /> Ajustar Perfil
-                                </Button>
+                    {/* Step 7: Prioridade */}
+                    {step === 7 && (
+                        <div className="space-y-6 animate-in fade-in duration-300">
+                            <p className="text-sm text-muted-foreground">O que é prioridade absoluta para você hoje?</p>
+                            <div className="flex flex-wrap gap-2">
+                                {[
+                                    { id: "essentials" as const, label: "Essencial (contas, moradia, comida)" },
+                                    { id: "future" as const, label: "Meu futuro (reserva, investimentos)" },
+                                    { id: "lifestyle" as const, label: "Qualidade de vida (lazer, bem-estar)" },
+                                ].map((opt) => (
+                                    <Button
+                                        key={opt.id}
+                                        variant={questionnaire.priority === opt.id ? "default" : "outline"}
+                                        onClick={() => update({ priority: opt.id })}
+                                        className="rounded-full text-xs font-bold"
+                                    >
+                                        {opt.label}
+                                    </Button>
+                                ))}
                             </div>
+                        </div>
+                    )}
 
-                            {isAILoading ? (
-                                <div className="flex flex-col items-center justify-center py-12 space-y-4">
-                                    <div className="h-12 w-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-                                    <p className="text-sm font-medium animate-pulse">A IA está arquitetando seu futuro financeiro...</p>
-                                </div>
-                            ) : aiError ? (
-                                <div className="p-6 bg-destructive/5 border border-destructive/20 rounded-2xl text-center">
-                                    <p className="text-sm text-destructive font-medium mb-4">{aiError}</p>
-                                    <Button variant="outline" size="sm" onClick={handleGenerateAdvice}>Tentar Novamente</Button>
-                                </div>
-                            ) : advisor ? (
-                                <>
-                                    <div className="p-4 bg-primary/2 border border-primary/5 rounded-2xl">
-                                        <p className="text-sm leading-relaxed text-foreground">
-                                            {advisor.overview}
-                                        </p>
-                                    </div>
+                    {/* Step 8: Metas curto e longo prazo */}
+                    {step === 8 && (
+                        <div className="space-y-6 animate-in fade-in duration-300">
+                            <p className="text-sm text-muted-foreground">Conte um pouco sobre suas metas (opcional). A IA usará isso para personalizar o plano.</p>
+                            <div className="space-y-3">
+                                <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground">Metas de curto prazo (ex: viagem, trocar celular)</Label>
+                                <Input
+                                    value={questionnaire.goalsShortTerm ?? ""}
+                                    onChange={(e) => update({ goalsShortTerm: e.target.value })}
+                                    className="rounded-xl"
+                                    placeholder="Ex: Férias em 6 meses, notebook novo"
+                                />
+                            </div>
+                            <div className="space-y-3">
+                                <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground">Metas de longo prazo (ex: casa própria, aposentadoria)</Label>
+                                <Input
+                                    value={questionnaire.goalsLongTerm ?? ""}
+                                    onChange={(e) => update({ goalsLongTerm: e.target.value })}
+                                    className="rounded-xl"
+                                    placeholder="Ex: Comprar apartamento, independência financeira"
+                                />
+                            </div>
+                        </div>
+                    )}
 
-                                    <div className="grid gap-3 sm:grid-cols-3">
-                                        {advisor.buckets.map((bucket) => (
-                                            <div key={bucket.category} className="bg-card border border-white/[0.03] p-4 rounded-2xl shadow-sm">
-                                                <div className="flex justify-between items-center mb-2">
-                                                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{bucket.category}</span>
-                                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary">{bucket.percentage}%</span>
-                                                </div>
-                                                <div className="text-lg font-bold">
-                                                    R$ {bucket.suggestedAmount.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}
-                                                </div>
+                    {/* Step 9: Resumo e Gerar */}
+                    {step === 9 && !advisor && (
+                        <div className="space-y-6 animate-in fade-in duration-300">
+                            <p className="text-sm text-muted-foreground">Revise suas respostas e gere seu plano personalizado.</p>
+                            <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-2 text-sm">
+                                <p><strong>Renda:</strong> R$ {(questionnaire.monthlySalary ?? 0).toLocaleString("pt-BR")} {questionnaire.otherIncome ? `+ R$ ${questionnaire.otherIncome.toLocaleString("pt-BR")} extras` : ""}</p>
+                                {questionnaire.fixedExpenses != null && questionnaire.fixedExpenses > 0 && <p><strong>Gastos fixos:</strong> R$ {questionnaire.fixedExpenses.toLocaleString("pt-BR")}</p>}
+                                <p><strong>Dívidas:</strong> {questionnaire.hasDebt ? `R$ ${(questionnaire.debtMonthlyPayment ?? 0).toLocaleString("pt-BR")}/mês` : "Nenhuma"}</p>
+                                <p><strong>Reserva de emergência:</strong> {questionnaire.hasEmergencyFund ? `${questionnaire.emergencyFundMonths ?? "?"} meses` : "Ainda não"}</p>
+                                <p><strong>Meta principal:</strong> {questionnaire.goal === "debt" ? "Quitar dívidas" : questionnaire.goal === "savings" ? "Investir/Poupar" : "Equilíbrio"}</p>
+                            </div>
+                            <Button
+                                onClick={handleGenerate}
+                                disabled={isAILoading}
+                                className="w-full h-12 rounded-xl font-bold bg-primary hover:bg-primary/90"
+                            >
+                                {isAILoading ? (
+                                    <>Gerando seu plano...</>
+                                ) : (
+                                    <>Gerar meu plano com IA <Sparkles className="ml-2 h-5 w-5" /></>
+                                )}
+                            </Button>
+                        </div>
+                    )}
+
+                    {/* Resultado do plano (após IA) */}
+                    {advisor && (
+                        <div className="space-y-6 animate-in fade-in duration-300">
+                            <h3 className="font-bold flex items-center gap-2">
+                                <Sparkles className="h-5 w-5 text-primary" /> Seu plano de controle financeiro
+                            </h3>
+                            <div className="p-4 bg-primary/5 border border-primary/10 rounded-2xl">
+                                <p className="text-sm leading-relaxed whitespace-pre-line">{advisor.overview}</p>
+                            </div>
+                            {advisor.buckets?.length > 0 && (
+                                <div className="grid gap-3 sm:grid-cols-3">
+                                    {advisor.buckets.map((b) => (
+                                        <div key={b.category} className="bg-card border rounded-xl p-4">
+                                            <div className="flex justify-between items-center mb-2">
+                                                <span className="text-[10px] font-bold uppercase text-muted-foreground">{b.category}</span>
+                                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary">{b.percentage}%</span>
                                             </div>
-                                        ))}
-                                    </div>
+                                            <div className="text-lg font-bold">R$ {b.suggestedAmount.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            <div className="pt-2">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h4 className="text-sm font-bold flex items-center gap-2">
+                                        <Lightbulb className="h-4 w-4 text-yellow-500" /> Por categoria
+                                    </h4>
+                                    <Button onClick={applySuggestions} className="h-9 px-4 rounded-xl font-bold bg-primary">
+                                        <Check className="mr-2 h-4 w-4" /> Aplicar orçamentos
+                                    </Button>
+                                </div>
+                                <div className="grid gap-2">
+                                    {advisor.categoryAdvice?.filter(a => a.suggestedAmount > 0).map((advice) => (
+                                        <div key={advice.categoryId} className="flex items-center justify-between p-3 bg-muted/30 border rounded-xl text-sm">
+                                            <span className="font-medium">{advice.categoryName}</span>
+                                            <span className="text-muted-foreground text-xs">R$ {advice.suggestedAmount.toFixed(0)}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
-                                    <div className="pt-2">
-                                        <div className="flex items-center justify-between mb-4">
-                                            <h4 className="text-sm font-bold flex items-center gap-2">
-                                                <Lightbulb className="h-4 w-4 text-yellow-500" />
-                                                Dicas por Categoria
-                                            </h4>
-                                            <Button
-                                                onClick={applySuggestions}
-                                                className="h-9 px-4 rounded-xl font-bold bg-primary hover:bg-primary/90 transition-all hover:scale-105"
-                                            >
-                                                <Check className="mr-2 h-4 w-4" /> Aplicar Orçamentos
-                                            </Button>
-                                        </div>
-                                        <div className="grid gap-2">
-                                            {advisor.categoryAdvice.filter(a => a.suggestedAmount > 0).map((advice) => (
-                                                <div key={advice.categoryId} className="flex items-center justify-between p-3 bg-background/50 border border-white/[0.03] rounded-xl text-sm">
-                                                    <span className="font-medium">{advice.categoryName}</span>
-                                                    <div className="flex items-center gap-3">
-                                                        <span className="text-muted-foreground text-xs">Sugerido: <span className="text-foreground font-bold">R$ {advice.suggestedAmount.toFixed(0)}</span></span>
-                                                        <ArrowRight className="h-3 w-3 text-muted-foreground" />
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </>
+                    {aiError && (
+                        <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-xl text-sm text-destructive">
+                            {aiError}
+                            <Button variant="outline" size="sm" className="mt-2" onClick={handleGenerate}>Tentar novamente</Button>
+                        </div>
+                    )}
+
+                    {/* Navegação */}
+                    {step <= TOTAL_STEPS && !advisor && (
+                        <div className="flex items-center justify-between pt-4 border-t">
+                            <Button variant="ghost" onClick={handleBack} disabled={step === 1} className="rounded-xl">
+                                <ArrowLeft className="mr-1 h-4 w-4" /> Voltar
+                            </Button>
+                            {step < 9 ? (
+                                <Button onClick={handleNext} className="rounded-xl">
+                                    Próxima <ChevronRight className="ml-1 h-4 w-4" />
+                                </Button>
                             ) : null}
                         </div>
+                    )}
+                    {advisor && (
+                        <Button variant="ghost" size="sm" onClick={() => { resetPlan(); setStep(1); setQuestionnaire({ ...questionnaire, monthlySalary }); }} className="rounded-xl">
+                            <ArrowLeft className="mr-1 h-4 w-4" /> Refazer questionário
+                        </Button>
                     )}
                 </div>
             </DialogContent>

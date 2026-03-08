@@ -26,22 +26,25 @@ interface DailyPlannerProps {
 const DailyPlanner: React.FC<DailyPlannerProps> = ({ tasks, onStartTask, onCompleteTask, onDeleteTask, onUpdateTask }) => {
     const [editingTask, setEditingTask] = React.useState<ProductivityTask | null>(null);
 
-    const sortedTasks = [...tasks].sort((a, b) =>
-        parseISO(a.scheduledStartTime).getTime() - parseISO(b.scheduledStartTime).getTime()
-    );
+    const sortedTasks = [...tasks].sort((a, b) => {
+        const aTime = a.scheduledStartTime ? parseISO(a.scheduledStartTime).getTime() : Infinity;
+        const bTime = b.scheduledStartTime ? parseISO(b.scheduledStartTime).getTime() : Infinity;
+        return aTime - bTime;
+    });
 
     const todayStr = format(new Date(), 'yyyy-MM-dd');
     const totalMinutesToday = tasks.reduce((acc, task) => {
+        if (!task.scheduledStartTime || task.status === 'completed') return acc;
         const isToday = task.scheduledStartTime.startsWith(todayStr);
-        return (isToday && task.status !== 'completed') ? acc + task.estimatedDuration : acc;
+        return isToday ? acc + task.estimatedDuration : acc;
     }, 0);
 
     const WORK_DAY_MINUTES = 8 * 60; // 8 hours
     const isOverloaded = totalMinutesToday > WORK_DAY_MINUTES;
 
-    // Suggestion Logic: High Impact + High Urgency first, targeting today's tasks
+    // Suggestion Logic: High Impact + High Urgency first, targeting today's tasks (with schedule)
     const suggestion = tasks
-        .filter(t => t.status === 'todo' && t.scheduledStartTime.startsWith(todayStr))
+        .filter(t => t.status === 'todo' && t.scheduledStartTime && t.scheduledStartTime.startsWith(todayStr))
         .sort((a, b) => (b.impact + b.urgency) - (a.impact + a.urgency))[0];
 
     return (
@@ -88,9 +91,11 @@ const DailyPlanner: React.FC<DailyPlannerProps> = ({ tasks, onStartTask, onCompl
                 <CardContent>
                     <div className="relative border-l border-white/[0.06] ml-3 pl-8 space-y-8 py-4">
                         {sortedTasks.map((task, index) => {
-                            const startTime = parseISO(task.scheduledStartTime);
-                            const endTime = addHours(startTime, task.estimatedDuration / 60);
-                            const isToday = task.scheduledStartTime.startsWith(todayStr);
+                            const hasSchedule = !!task.scheduledStartTime;
+                            const dateOnly = hasSchedule && task.scheduledStartTime!.length === 10;
+                            const startTime = hasSchedule ? parseISO(task.scheduledStartTime!) : null;
+                            const endTime = startTime && !dateOnly ? addHours(startTime, task.estimatedDuration / 60) : null;
+                            const isToday = hasSchedule && task.scheduledStartTime!.startsWith(todayStr);
 
                             return (
                                 <div key={task.id} className="relative group">
@@ -109,8 +114,18 @@ const DailyPlanner: React.FC<DailyPlannerProps> = ({ tasks, onStartTask, onCompl
                                     )}>
                                         <div className="flex justify-between items-start mb-2">
                                             <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-60">
-                                                {!isToday && <span className="text-primary mr-2">{format(startTime, 'dd/MM')}</span>}
-                                                {format(startTime, 'HH:mm')} - {format(endTime, 'HH:mm')}
+                                                {hasSchedule ? (
+                                                    dateOnly ? (
+                                                        <span className="text-primary">Dia {format(startTime!, 'dd/MM')}</span>
+                                                    ) : (
+                                                        <>
+                                                            {!isToday && <span className="text-primary mr-2">{format(startTime!, 'dd/MM')}</span>}
+                                                            {format(startTime!, 'HH:mm')} - {format(endTime!, 'HH:mm')}
+                                                        </>
+                                                    )
+                                                ) : (
+                                                    <span className="text-amber-500/80">Sem previsão</span>
+                                                )}
                                             </span>
                                             <Badge
                                                 variant="outline"

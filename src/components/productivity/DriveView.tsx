@@ -240,19 +240,22 @@ export const DriveView: React.FC = () => {
                                     </div>
                                 </div>
 
-                                <div className="absolute top-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="absolute top-3 right-3 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <Button
-                                        size="icon"
+                                        size="sm"
                                         variant="ghost"
-                                        className="h-8 w-8 rounded-full hover:bg-white/10"
+                                        className="h-8 px-2 rounded-lg hover:bg-white/10 text-[9px] font-bold uppercase tracking-wider gap-1"
+                                        title={item.type === 'folder' ? 'Renomear pasta' : 'Renomear documento'}
                                         onClick={(e) => { e.stopPropagation(); setEditingId(item.id); setEditNameValue(item.name); }}
                                     >
                                         <Pencil className="w-3.5 h-3.5" />
+                                        Renomear
                                     </Button>
                                     <Button
                                         size="icon"
                                         variant="ghost"
                                         className="h-8 w-8 rounded-full hover:bg-red-500/20 hover:text-red-500"
+                                        title="Excluir"
                                         onClick={(e) => { e.stopPropagation(); handleDeleteItem(item.id); }}
                                     >
                                         <Trash2 className="w-3.5 h-3.5" />

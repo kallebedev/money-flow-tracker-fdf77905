@@ -1,14 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabaseUrl = 'https://povsckeusphycesxkcvb.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBvdnNja2V1c3BoeWNlc3hrY3ZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI1NzM2NTgsImV4cCI6MjA4ODE0OTY1OH0.eI8chR6vh9BVK6i_Dk1OrvQfm8PN82X2L8ScZy3rUQg';
 
-if (!supabaseUrl || !supabaseAnonKey) {
-    console.error('Missing Supabase environment variables. Please add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to your Vercel project.');
-}
-
-// Fallback to a valid URL structure to prevent the app from crashing on load
-export const supabase = createClient(
-    supabaseUrl || 'https://placeholder.supabase.co',
-    supabaseAnonKey || 'placeholder'
-);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);

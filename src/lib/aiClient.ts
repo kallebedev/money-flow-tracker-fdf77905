@@ -60,8 +60,8 @@ export async function generateFinancialPlan(
 }
 
 export async function analyzeFinanceHealth(
-  transactions: Array<Record<string, unknown>>,
-  categories: Array<Record<string, unknown>>,
+  transactions: unknown[],
+  categories: unknown[],
   salary: number,
 ): Promise<AIFinanceHealth> {
   return await postJSON<AIFinanceHealth>("/ai/finance/health", { transactions, categories, salary });

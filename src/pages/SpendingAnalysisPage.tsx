@@ -139,10 +139,10 @@ export default function SpendingAnalysisPage() {
                         </CardHeader>
                         <CardContent className="px-8 pb-8 flex flex-col justify-center">
                             <p className="text-lg font-medium leading-relaxed text-foreground/90 italic">
-                                "{advisor?.overview || "Comece a registrar suas transações para receber conselhos personalizados sobre sua distribuição de gastos."}"
+"{(advisor as any)?.overview || "Comece a registrar suas transações para receber conselhos personalizados sobre sua distribuição de gastos."}"
                             </p>
                             <div className="mt-6 flex flex-wrap gap-3">
-                                {advisor?.buckets.map(bucket => (
+                                {(advisor as any)?.buckets?.map((bucket: any) => (
                                     <div key={bucket.category} className="bg-white/[0.03] border border-white/[0.03] px-4 py-2 rounded-2xl">
                                         <span className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground">{bucket.category}</span>
                                         <span className="text-sm font-bold text-foreground">{bucket.percentage}% sugerido</span>

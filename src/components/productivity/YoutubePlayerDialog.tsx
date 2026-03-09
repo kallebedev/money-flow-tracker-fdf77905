@@ -12,8 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { ObsidianDocEditor } from './ObsidianDocEditor';
-import type { DocItemForEditor } from './ObsidianDocEditor';
+import { RichTextEditor } from './RichTextEditor';
 
 interface YoutubePlayerDialogProps {
     goal: Goal | null;

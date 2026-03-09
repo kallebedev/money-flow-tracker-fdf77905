@@ -4,7 +4,7 @@ import EisenhowerMatrix from "@/components/productivity/EisenhowerMatrix";
 import DailyPlanner from "@/components/productivity/DailyPlanner";
 import ProductivityTaskForm from "@/components/productivity/ProductivityTaskForm";
 import StrategicView from "@/components/productivity/StrategicView";
-import DailyGoalsView from "@/components/productivity/DailyGoalsView";
+
 import FocusMode from "@/components/productivity/FocusMode";
 import ConcentrationMetrics from "@/components/productivity/ConcentrationMetrics";
 import { ProductivityDashboard } from "@/components/productivity/ProductivityDashboard";

@@ -42,53 +42,41 @@ export default function Productivity() {
             </div>
 
             <Tabs defaultValue="intelligence" className="w-full">
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8 mt-2">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-10 mt-2">
                     <div className="overflow-x-auto pb-2 -mx-4 px-4 lg:mx-0 lg:px-0">
-                        <TabsList className="relative bg-[#050505]/90 p-1.5 rounded-[999px] h-16 border border-white/[0.06] w-max lg:w-auto shadow-[0_18px_60px_rgba(0,0,0,0.65)]">
-                            <TabsTrigger
-                                value="intelligence"
-                                className="px-4 md:px-5 rounded-2xl text-[9px] md:text-[10px] font-black tracking-[0.22em] text-nowrap flex flex-col items-center justify-center gap-0.5 text-muted-foreground/70 data-[state=active]:text-black data-[state=active]:shadow-[0_0_30px_rgba(34,197,94,0.55)] data-[state=active]:bg-primary"
-                            >
-                                <span className="uppercase flex items-center gap-1">
-                                    <span>🛸</span>
-                                    <span>Inteligência</span>
-                                </span>
-                                <span className="text-[9px] font-medium uppercase tracking-[0.2em] text-muted-foreground/80">
-                                    Visão Geral
-                                </span>
-                            </TabsTrigger>
-                            <TabsTrigger
-                                value="strategic"
-                                className="px-4 md:px-5 rounded-2xl text-[9px] md:text-[10px] font-black tracking-[0.22em] text-nowrap flex flex-col items-center justify-center gap-0.5 text-muted-foreground/70 data-[state=active]:text-black data-[state=active]:shadow-[0_0_30px_rgba(34,197,94,0.55)] data-[state=active]:bg-primary"
-                            >
-                                <span className="uppercase flex items-center gap-1">
-                                    <span className="text-[10px] opacity-70">1.</span>
-                                    <span>Estratégico</span>
-                                </span>
-                                <span className="text-[9px] font-medium uppercase tracking-[0.2em] text-muted-foreground/80">
-                                    Metas & Sistemas
-                                </span>
-                            </TabsTrigger>
-                            <TabsTrigger
-                                value="tactical"
-                                className="px-4 md:px-5 rounded-2xl text-[9px] md:text-[10px] font-black tracking-[0.22em] text-nowrap flex flex-col items-center justify-center gap-0.5 text-muted-foreground/70 data-[state=active]:text-black data-[state=active]:shadow-[0_0_30px_rgba(34,197,94,0.55)] data-[state=active]:bg-primary"
-                            >
-                                <span className="uppercase flex items-center gap-1">
-                                    <span className="text-[10px] opacity-70">2.</span>
-                                    <span>Tático</span>
-                                </span>
-                                <span className="text-[9px] font-medium uppercase tracking-[0.2em] text-muted-foreground/80">
-                                    Dia em Execução
-                                </span>
-                            </TabsTrigger>
+                        <TabsList className="relative bg-[#0c0c0c] p-1 rounded-2xl h-12 border border-white/[0.05] w-max lg:w-auto shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
+                            {[
+                                { value: "intelligence", icon: "🛸", label: "Inteligência", sub: "Visão Geral" },
+                                { value: "strategic", icon: "📐", label: "Estratégico", sub: "Metas & Sistemas" },
+                                { value: "tactical", icon: "⚡", label: "Tático", sub: "Dia em Execução" },
+                            ].map((tab) => (
+                                <TabsTrigger
+                                    key={tab.value}
+                                    value={tab.value}
+                                    className={cn(
+                                        "px-5 md:px-6 rounded-xl text-nowrap flex items-center gap-2.5 h-10",
+                                        "text-[11px] font-bold tracking-[0.08em] uppercase",
+                                        "text-muted-foreground/60 transition-all duration-300",
+                                        "data-[state=active]:text-primary-foreground data-[state=active]:bg-primary data-[state=active]:shadow-[0_0_24px_rgba(34,197,94,0.4)]",
+                                        "hover:text-muted-foreground"
+                                    )}
+                                >
+                                    <span className="text-sm">{tab.icon}</span>
+                                    <span>{tab.label}</span>
+                                </TabsTrigger>
+                            ))}
                         </TabsList>
                     </div>
 
                     <Button
                         onClick={() => setIsFocusMode(true)}
-                        className="bg-primary/5 hover:bg-primary/10 text-primary border border-primary/10 rounded-xl font-black uppercase text-[9px] md:text-[10px] tracking-[0.15em] md:tracking-[0.2em] px-4 md:px-6 h-11 group shadow-lg shadow-primary/5 w-full lg:w-auto"
+                        className={cn(
+                            "bg-primary/5 hover:bg-primary/10 text-primary border border-primary/10",
+                            "rounded-xl font-bold uppercase text-[10px] tracking-[0.12em]",
+                            "px-5 h-10 group shadow-lg shadow-primary/5 w-full lg:w-auto transition-all"
+                        )}
                     >
-                        <Zap className="w-4 h-4 mr-2 group-hover:animate-pulse" /> Ativar Santuário de Foco
+                        <Zap className="w-4 h-4 mr-2 group-hover:animate-pulse" /> Modo Foco
                     </Button>
                 </div>
 

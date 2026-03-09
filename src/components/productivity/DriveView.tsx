@@ -3,7 +3,6 @@ import { DocItem, Goal } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import {
     Folder, FileText, Plus, Search, Trash2, Pencil,
     Save, ArrowLeft, ChevronRight, HardDrive, Filter
@@ -11,6 +10,7 @@ import {
 import { useProductivity } from '@/hooks/useProductivity';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { RichTextEditor } from './RichTextEditor';
 
 export const DriveView: React.FC = () => {
     const { goals, updateGoal } = useProductivity();

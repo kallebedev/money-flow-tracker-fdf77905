@@ -14,7 +14,7 @@ import { useProductivity } from '@/hooks/useProductivity';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { YoutubePlayerDialog } from './YoutubePlayerDialog';
-import { ObsidianDocEditor } from './ObsidianDocEditor';
+import { RichTextEditor } from './RichTextEditor';
 import {
     Dialog,
     DialogContent,

@@ -1,9 +1,8 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { useFinanceData } from "./useFinanceData";
 import { Transaction } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthContext";
-import { analyzeFinanceHealth } from "../lib/aiClient";
-import { AIFinanceHealth } from "../lib/openai";
+import { analyzeSpendingAI } from "@/lib/openaiService";
 
 export interface SpendingInsight {
     categoryId: string;

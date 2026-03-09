@@ -56,7 +56,7 @@ export const useProductivity = () => {
                 id: g.id,
                 title: g.title,
                 type: g.type,
-                targetDate: g.target_date,
+                targetDate: g.target_date ?? undefined,
                 youtubeLink: g.youtube_link,
                 youtubeTimestamp: g.youtube_timestamp,
                 progress: g.progress,
@@ -175,7 +175,7 @@ export const useProductivity = () => {
                     user_id: user?.id,
                     title: goal.title,
                     type: goal.type,
-                    target_date: goal.targetDate,
+                    target_date: goal.targetDate ?? null,
                     youtube_link: goal.youtubeLink,
                     youtube_timestamp: goal.youtubeTimestamp || 0,
                     progress: goal.progress || 0,
@@ -198,7 +198,7 @@ export const useProductivity = () => {
             const dbUpdates: any = {};
             if (updates.title !== undefined) dbUpdates.title = updates.title;
             if (updates.type !== undefined) dbUpdates.type = updates.type;
-            if (updates.targetDate !== undefined) dbUpdates.target_date = updates.targetDate;
+            if (updates.targetDate !== undefined) dbUpdates.target_date = updates.targetDate ?? null;
             if (updates.youtubeLink !== undefined) dbUpdates.youtube_link = updates.youtubeLink;
             if (updates.youtubeTimestamp !== undefined) dbUpdates.youtube_timestamp = updates.youtubeTimestamp;
             if (updates.progress !== undefined) dbUpdates.progress = updates.progress;
@@ -362,6 +362,21 @@ export const useProductivity = () => {
 
         goals,
         addGoal: addGoalMutation.mutate,
+        addGoalAsync: addGoalMutation.mutateAsync,
+        resetDailyGoals: async () => {
+            const today = format(new Date(), 'yyyy-MM-dd');
+            const dailyGoals = goals.filter(g => g.type === 'daily');
+            await Promise.all(
+                dailyGoals.map(g => {
+                    const needsReset = g.status === 'achieved' || (g.progress ?? 0) !== 0 || g.targetDate !== today;
+                    if (!needsReset) return Promise.resolve();
+                    return updateGoalMutation.mutateAsync({
+                        id: g.id,
+                        updates: { status: 'pending', progress: 0, targetDate: today }
+                    });
+                })
+            );
+        },
         toggleGoalStatus: (id: string) => {
             const goal = goals.find(g => g.id === id);
             if (!goal) return;

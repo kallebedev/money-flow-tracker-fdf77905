@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useFinance } from "../contexts/FinanceContext";
-import { generateBudgetAdvice, AIBudgetAdvice } from "../lib/openai";
+import { generateBudgetAdvice, generateFinancialPlan } from "../lib/aiClient";
+import { AIBudgetAdvice } from "../lib/openai";
 
 export interface BudgetProfileData {
     goal: "debt" | "savings" | "moderate";
@@ -72,7 +73,6 @@ export function useAIPlanFromQuestionnaire() {
         setError(null);
         setAdvisor(null);
         try {
-            const { generateFinancialPlan } = await import("../lib/openai");
             const data = await generateFinancialPlan(
                 {
                     ...questionnaire,

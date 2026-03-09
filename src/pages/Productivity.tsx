@@ -4,6 +4,7 @@ import EisenhowerMatrix from "@/components/productivity/EisenhowerMatrix";
 import DailyPlanner from "@/components/productivity/DailyPlanner";
 import ProductivityTaskForm from "@/components/productivity/ProductivityTaskForm";
 import StrategicView from "@/components/productivity/StrategicView";
+import DailyGoalsView from "@/components/productivity/DailyGoalsView";
 import FocusMode from "@/components/productivity/FocusMode";
 import ConcentrationMetrics from "@/components/productivity/ConcentrationMetrics";
 import { ProductivityDashboard } from "@/components/productivity/ProductivityDashboard";
@@ -43,15 +44,54 @@ export default function Productivity() {
             <Tabs defaultValue="intelligence" className="w-full">
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8 mt-2">
                     <div className="overflow-x-auto pb-2 -mx-4 px-4 lg:mx-0 lg:px-0">
-                        <TabsList className="bg-white/[0.02] p-1 rounded-xl h-11 border border-white/[0.03] w-max lg:w-auto">
-                            <TabsTrigger value="intelligence" className="px-3 md:px-4 data-[state=active]:bg-primary rounded-lg text-[9px] md:text-[10px] font-black uppercase tracking-widest text-nowrap">
-                                🛸 Inteligência
+                        <TabsList className="relative bg-[#050505]/90 p-1.5 rounded-[999px] h-16 border border-white/[0.06] w-max lg:w-auto shadow-[0_18px_60px_rgba(0,0,0,0.65)]">
+                            <TabsTrigger
+                                value="intelligence"
+                                className="px-4 md:px-5 rounded-2xl text-[9px] md:text-[10px] font-black tracking-[0.22em] text-nowrap flex flex-col items-center justify-center gap-0.5 text-muted-foreground/70 data-[state=active]:text-black data-[state=active]:shadow-[0_0_30px_rgba(34,197,94,0.55)] data-[state=active]:bg-primary"
+                            >
+                                <span className="uppercase flex items-center gap-1">
+                                    <span>🛸</span>
+                                    <span>Inteligência</span>
+                                </span>
+                                <span className="text-[9px] font-medium uppercase tracking-[0.2em] text-muted-foreground/80">
+                                    Visão Geral
+                                </span>
                             </TabsTrigger>
-                            <TabsTrigger value="strategic" className="px-3 md:px-4 data-[state=active]:bg-primary rounded-lg text-[9px] md:text-[10px] font-black uppercase tracking-widest text-nowrap">
-                                1. Estratégico
+                            <TabsTrigger
+                                value="strategic"
+                                className="px-4 md:px-5 rounded-2xl text-[9px] md:text-[10px] font-black tracking-[0.22em] text-nowrap flex flex-col items-center justify-center gap-0.5 text-muted-foreground/70 data-[state=active]:text-black data-[state=active]:shadow-[0_0_30px_rgba(34,197,94,0.55)] data-[state=active]:bg-primary"
+                            >
+                                <span className="uppercase flex items-center gap-1">
+                                    <span className="text-[10px] opacity-70">1.</span>
+                                    <span>Estratégico</span>
+                                </span>
+                                <span className="text-[9px] font-medium uppercase tracking-[0.2em] text-muted-foreground/80">
+                                    Metas & Sistemas
+                                </span>
                             </TabsTrigger>
-                            <TabsTrigger value="tactical" className="px-3 md:px-4 data-[state=active]:bg-primary rounded-lg text-[9px] md:text-[10px] font-black uppercase tracking-widest text-nowrap">
-                                2. Tático
+                            <TabsTrigger
+                                value="daily-goals"
+                                className="px-4 md:px-5 rounded-2xl text-[9px] md:text-[10px] font-black tracking-[0.22em] text-nowrap flex flex-col items-center justify-center gap-0.5 text-muted-foreground/70 data-[state=active]:text-black data-[state=active]:shadow-[0_0_30px_rgba(34,197,94,0.55)] data-[state=active]:bg-primary"
+                            >
+                                <span className="uppercase flex items-center gap-1">
+                                    <span className="text-[10px] opacity-70">1b.</span>
+                                    <span>Diário</span>
+                                </span>
+                                <span className="text-[9px] font-medium uppercase tracking-[0.2em] text-muted-foreground/80">
+                                    Metas diárias
+                                </span>
+                            </TabsTrigger>
+                            <TabsTrigger
+                                value="tactical"
+                                className="px-4 md:px-5 rounded-2xl text-[9px] md:text-[10px] font-black tracking-[0.22em] text-nowrap flex flex-col items-center justify-center gap-0.5 text-muted-foreground/70 data-[state=active]:text-black data-[state=active]:shadow-[0_0_30px_rgba(34,197,94,0.55)] data-[state=active]:bg-primary"
+                            >
+                                <span className="uppercase flex items-center gap-1">
+                                    <span className="text-[10px] opacity-70">2.</span>
+                                    <span>Tático</span>
+                                </span>
+                                <span className="text-[9px] font-medium uppercase tracking-[0.2em] text-muted-foreground/80">
+                                    Dia em Execução
+                                </span>
                             </TabsTrigger>
                         </TabsList>
                     </div>
@@ -70,6 +110,10 @@ export default function Productivity() {
 
                 <TabsContent value="strategic" className="animate-in fade-in duration-500">
                     <StrategicView />
+                </TabsContent>
+
+                <TabsContent value="daily-goals" className="animate-in fade-in duration-500">
+                    <DailyGoalsView />
                 </TabsContent>
 
                 <TabsContent value="tactical" className="space-y-8 animate-in fade-in duration-500">
@@ -107,6 +151,7 @@ export default function Productivity() {
                         <div className="lg:col-span-2 space-y-8">
                             <DailyPlanner
                                 tasks={tasks}
+                                goals={goals}
                                 onStartTask={(id) => {
                                     setFocusTaskId(id);
                                     setIsFocusMode(true);

@@ -20,7 +20,7 @@ import {
     transformIdeaToProject,
     generateWeeklyPlan,
     getAIAdvisorNote
-} from '@/lib/openai';
+} from '@/lib/aiClient';
 
 type AIProposal = {
     title: string;

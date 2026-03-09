@@ -1,5 +1,5 @@
 import React from 'react';
-import { ProductivityTask } from '@/lib/types';
+import { Goal, ProductivityTask } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -15,15 +15,27 @@ import { ptBR } from 'date-fns/locale';
 
 import TaskEditDialog from './TaskEditDialog';
 
+const getGoalDailyTargetMinutes = (goal: Goal): number | undefined => {
+    if (!goal.notes || !goal.notes.startsWith('{')) return undefined;
+    try {
+        const parsed = JSON.parse(goal.notes);
+        const value = Number((parsed as any)?.dailyTargetMinutes);
+        return Number.isFinite(value) && value > 0 ? Math.round(value) : undefined;
+    } catch {
+        return undefined;
+    }
+};
+
 interface DailyPlannerProps {
     tasks: ProductivityTask[];
+    goals: Goal[];
     onStartTask: (id: string) => void;
     onCompleteTask: (id: string) => void;
     onDeleteTask: (id: string) => void;
     onUpdateTask: (id: string, updates: Partial<ProductivityTask>) => void;
 }
 
-const DailyPlanner: React.FC<DailyPlannerProps> = ({ tasks, onStartTask, onCompleteTask, onDeleteTask, onUpdateTask }) => {
+const DailyPlanner: React.FC<DailyPlannerProps> = ({ tasks, goals, onStartTask, onCompleteTask, onDeleteTask, onUpdateTask }) => {
     const [editingTask, setEditingTask] = React.useState<ProductivityTask | null>(null);
 
     const sortedTasks = [...tasks].sort((a, b) => {
@@ -33,11 +45,26 @@ const DailyPlanner: React.FC<DailyPlannerProps> = ({ tasks, onStartTask, onCompl
     });
 
     const todayStr = format(new Date(), 'yyyy-MM-dd');
-    const totalMinutesToday = tasks.reduce((acc, task) => {
+
+    const goalsWithDailyTarget = goals
+        .map(goal => ({
+            goal,
+            dailyTargetMinutes: getGoalDailyTargetMinutes(goal),
+        }))
+        .filter(item => item.dailyTargetMinutes && item.goal.status !== 'achieved');
+
+    const totalStrategicMinutes = goalsWithDailyTarget.reduce(
+        (acc, item) => acc + (item.dailyTargetMinutes || 0),
+        0
+    );
+
+    const totalTaskMinutesToday = tasks.reduce((acc, task) => {
         if (!task.scheduledStartTime || task.status === 'completed') return acc;
         const isToday = task.scheduledStartTime.startsWith(todayStr);
         return isToday ? acc + task.estimatedDuration : acc;
     }, 0);
+
+    const totalMinutesToday = totalTaskMinutesToday + totalStrategicMinutes;
 
     const WORK_DAY_MINUTES = 8 * 60; // 8 hours
     const isOverloaded = totalMinutesToday > WORK_DAY_MINUTES;
@@ -75,9 +102,44 @@ const DailyPlanner: React.FC<DailyPlannerProps> = ({ tasks, onStartTask, onCompl
                     <AlertTitle>Aviso de Sobrecarga!</AlertTitle>
                     <AlertDescription>
                         Você tem {Math.round(totalMinutesToday / 60)}h de trabalho planejado para hoje.
+                        {totalStrategicMinutes > 0 && (
+                            <>
+                                {' '}Inclui aproximadamente {Math.round(totalStrategicMinutes / 60)}h reservadas para metas estratégicas.
+                            </>
+                        )}
                         Isso excede o limite saudável de 8h.
                     </AlertDescription>
                 </Alert>
+            )}
+
+            {/* Strategic Daily Blocks */}
+            {goalsWithDailyTarget.length > 0 && (
+                <Card className="bg-[#111] border-white/[0.03] rounded-[24px]">
+                    <CardHeader className="pb-3 border-b border-white/[0.03] mb-4">
+                        <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2 text-muted-foreground">
+                            <Clock className="w-3.5 h-3.5 text-primary" />
+                            Blocos estratégicos do dia
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                        {goalsWithDailyTarget.map(({ goal, dailyTargetMinutes }) => (
+                            <div
+                                key={goal.id}
+                                className="flex items-center justify-between p-3 rounded-xl bg-white/[0.02] border border-white/[0.03]"
+                            >
+                                <span className="text-sm font-medium text-[#f0f0f0] break-words">
+                                    {goal.title}
+                                </span>
+                                <Badge
+                                    variant="outline"
+                                    className="text-[9px] font-black uppercase tracking-wider h-5 px-2 bg-primary/10 border-primary/30 text-primary"
+                                >
+                                    {dailyTargetMinutes} min/dia
+                                </Badge>
+                            </div>
+                        ))}
+                    </CardContent>
+                </Card>
             )}
 
             {/* Timeline */}

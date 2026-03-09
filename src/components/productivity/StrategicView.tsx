@@ -246,12 +246,28 @@ const StrategicView: React.FC = () => {
             setActiveFileId(newItem.id);
             setNoteDraft('');
         }
+        toast.success(type === 'file' ? 'Documento criado!' : 'Pasta criada!');
     };
 
+    // Recursive delete that properly handles nested folders
     const handleDeleteItem = (id: string) => {
-        const updated = fileSystem.filter(item => item.id !== id && item.parentId !== id);
+        const getIdsToDelete = (parentId: string): string[] => {
+            const children = fileSystem.filter(i => i.parentId === parentId);
+            let ids = [parentId];
+            children.forEach(c => {
+                if (c.type === 'folder') ids = [...ids, ...getIdsToDelete(c.id)];
+                else ids.push(c.id);
+            });
+            return ids;
+        };
+        const idsToDelete = new Set(getIdsToDelete(id));
+        const updated = fileSystem.filter(item => !idsToDelete.has(item.id));
         setFileSystem(updated);
         persistFileSystem(updated);
+        if (activeFileId && idsToDelete.has(activeFileId)) {
+            setActiveFileId(null);
+        }
+        toast.success('Item removido!');
     };
 
     const handleSaveFileContent = () => {
@@ -261,7 +277,7 @@ const StrategicView: React.FC = () => {
         );
         setFileSystem(updated);
         persistFileSystem(updated);
-        toast.success('Documento salvo no Drive!');
+        toast.success('Documento salvo!');
     };
 
     const handleRenameDoc = (id: string) => {
@@ -272,14 +288,21 @@ const StrategicView: React.FC = () => {
         setFileSystem(updated);
         persistFileSystem(updated);
         setEditingDocId(null);
-        toast.success('Renomeado com sucesso');
+        toast.success('Renomeado!');
     };
 
-    const filteredDocItems = fileSystem.filter(item => {
-        const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesFolder = item.parentId === (searchTerm ? item.parentId : currentFolderId);
-        return searchTerm ? matchesSearch : matchesFolder;
-    });
+    const openDocFile = (docId: string) => {
+        const doc = fileSystem.find(i => i.id === docId);
+        if (doc && doc.type === 'file') {
+            setActiveFileId(doc.id);
+            setNoteDraft(doc.content || '');
+        }
+    };
+
+    // Fixed filtering: search globally or show current folder items
+    const displayedItems = searchTerm.trim()
+        ? fileSystem.filter(item => item.name.toLowerCase().includes(searchTerm.toLowerCase()))
+        : fileSystem.filter(item => item.parentId === currentFolderId);
 
     const breadcrumbs = [];
     let tempId = currentFolderId;
@@ -609,20 +632,14 @@ const StrategicView: React.FC = () => {
                         <div className="min-h-[500px] max-h-[70vh] overflow-y-auto p-8 bg-black/20">
                             {activeFileId ? (
                                 <div className="space-y-6">
-                                    <Button variant="ghost" size="sm" onClick={() => setActiveFileId(null)} className="h-8 -ml-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-white">
+                                    <Button variant="ghost" size="sm" onClick={() => setActiveFileId(null)} className="h-8 -ml-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-foreground">
                                         <ArrowLeft className="w-3.5 h-3.5 mr-2" /> Voltar
                                     </Button>
                                     <ObsidianDocEditor
                                         value={noteDraft}
                                         onChange={setNoteDraft}
                                         onSave={handleSaveFileContent}
-                                        onOpenWikiLink={(docId) => {
-                                            const doc = fileSystem.find((i) => i.id === docId);
-                                            if (doc && doc.type === 'file') {
-                                                setActiveFileId(doc.id);
-                                                setNoteDraft(doc.content || '');
-                                            }
-                                        }}
+                                        onOpenWikiLink={openDocFile}
                                         onRequestCreateDoc={(docName) => {
                                             const newItem: DocItem = {
                                                 id: Math.random().toString(36).substr(2, 9),
@@ -642,20 +659,23 @@ const StrategicView: React.FC = () => {
                                         allItems={fileSystem}
                                         currentDocName={fileSystem.find((i) => i.id === activeFileId)?.name ?? ''}
                                         currentDocId={activeFileId}
-                                        placeholder="Digite aqui... Use os botões para negrito, itálico, título, listas e links entre documentos."
+                                        placeholder="Digite aqui... Ctrl+B negrito, Ctrl+I itálico. Use [[nome]] para links entre docs."
                                     />
                                 </div>
                             ) : (
                                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                                    {fileSystem.filter(i => i.parentId === currentFolderId).map(item => (
+                                    {displayedItems.map(item => (
                                         <div
                                             key={item.id}
-                                            className="group relative bg-white/[0.02] border border-white/[0.05] rounded-[24px] p-4 hover:bg-white/[0.05] cursor-pointer"
-                                            onClick={() => item.type === 'folder' ? setCurrentFolderId(item.id) : (setActiveFileId(item.id), setNoteDraft(item.content || ''))}
+                                            className="group relative bg-white/[0.02] border border-white/[0.05] rounded-2xl p-5 hover:bg-white/[0.05] hover:border-white/[0.08] cursor-pointer transition-all duration-200"
+                                            onClick={() => item.type === 'folder' ? (setCurrentFolderId(item.id), setSearchTerm('')) : openDocFile(item.id)}
                                         >
                                             <div className="flex flex-col gap-3">
-                                                <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center", item.type === 'folder' ? "bg-blue-500/10 text-blue-500" : "bg-emerald-500/10 text-emerald-500")}>
-                                                    {item.type === 'folder' ? <Folder className="w-6 h-6" /> : <FileText className="w-6 h-6" />}
+                                                <div className={cn(
+                                                    "w-11 h-11 rounded-xl flex items-center justify-center transition-transform group-hover:scale-105",
+                                                    item.type === 'folder' ? "bg-blue-500/10 text-blue-500" : "bg-emerald-500/10 text-emerald-500"
+                                                )}>
+                                                    {item.type === 'folder' ? <Folder className="w-5 h-5" /> : <FileText className="w-5 h-5" />}
                                                 </div>
                                                 <div className="min-w-0">
                                                     {editingDocId === item.id ? (
@@ -663,37 +683,38 @@ const StrategicView: React.FC = () => {
                                                             <Input
                                                                 value={editNameValue}
                                                                 onChange={e => setEditNameValue(e.target.value)}
-                                                                onKeyDown={e => e.key === 'Enter' && handleRenameDoc(item.id)}
-                                                                className="h-6 text-[10px] px-1"
+                                                                onKeyDown={e => { if (e.key === 'Enter') handleRenameDoc(item.id); if (e.key === 'Escape') setEditingDocId(null); }}
+                                                                className="h-7 text-xs px-2 bg-white/[0.04] border-white/[0.08]"
                                                                 autoFocus
                                                             />
-                                                            <Button size="icon" variant="ghost" className="h-6 w-6 text-emerald-500" onClick={() => handleRenameDoc(item.id)}>
+                                                            <Button size="icon" variant="ghost" className="h-7 w-7 text-emerald-500" onClick={() => handleRenameDoc(item.id)}>
                                                                 <Save className="w-3 h-3" />
                                                             </Button>
                                                         </div>
                                                     ) : (
                                                         <>
-                                                            <p className="text-xs font-bold text-white/90 truncate">{item.name}</p>
-                                                            <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mt-1">{item.type === 'folder' ? 'Pasta' : 'Doc'}</p>
+                                                            <p className="text-xs font-bold text-foreground/90 truncate group-hover:text-foreground transition-colors">{item.name}</p>
+                                                            <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mt-1 opacity-50">
+                                                                {item.type === 'folder' ? 'Pasta' : 'Documento'}
+                                                            </p>
                                                         </>
                                                     )}
                                                 </div>
                                             </div>
-                                            <div className="absolute top-2 right-2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <Button
-                                                    size="sm"
+                                                    size="icon"
                                                     variant="ghost"
-                                                    className="h-7 px-2 rounded-lg hover:bg-white/10 text-[9px] font-bold uppercase tracking-wider gap-1"
-                                                    title={item.type === 'folder' ? 'Renomear pasta' : 'Renomear documento'}
+                                                    className="h-7 w-7 rounded-lg hover:bg-white/10"
+                                                    title="Renomear"
                                                     onClick={(e) => { e.stopPropagation(); setEditingDocId(item.id); setEditNameValue(item.name); }}
                                                 >
                                                     <Pencil className="w-3 h-3" />
-                                                    Renomear
                                                 </Button>
                                                 <Button
                                                     size="icon"
                                                     variant="ghost"
-                                                    className="h-7 w-7 rounded-full hover:bg-red-500/20 hover:text-red-500"
+                                                    className="h-7 w-7 rounded-lg hover:bg-destructive/20 hover:text-destructive"
                                                     title="Excluir"
                                                     onClick={(e) => { e.stopPropagation(); handleDeleteItem(item.id); }}
                                                 >
@@ -702,10 +723,17 @@ const StrategicView: React.FC = () => {
                                             </div>
                                         </div>
                                     ))}
-                                    {filteredDocItems.length === 0 && (
-                                        <div className="col-span-full py-20 flex flex-col items-center justify-center text-center opacity-20">
-                                            <Search className="w-8 h-8 mb-4" />
-                                            <p className="text-[10px] font-black uppercase tracking-[0.3em]">{searchTerm ? 'Nada encontrado' : 'Pasta Vazia'}</p>
+                                    {displayedItems.length === 0 && (
+                                        <div className="col-span-full py-20 flex flex-col items-center justify-center text-center">
+                                            <div className="p-4 rounded-2xl bg-white/[0.02] mb-4">
+                                                {searchTerm ? <Search className="w-8 h-8 text-muted-foreground/20" /> : <FileText className="w-8 h-8 text-muted-foreground/20" />}
+                                            </div>
+                                            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40">
+                                                {searchTerm ? 'Nenhum resultado encontrado' : 'Pasta vazia'}
+                                            </p>
+                                            {!searchTerm && (
+                                                <p className="text-[10px] text-muted-foreground/30 mt-1">Crie um documento ou pasta para começar</p>
+                                            )}
                                         </div>
                                     )}
                                 </div>

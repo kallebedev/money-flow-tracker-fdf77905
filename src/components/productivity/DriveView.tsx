@@ -79,11 +79,12 @@ export const DriveView: React.FC = () => {
             return ids;
         };
 
-        const idsToDelete = getIdsToDelete(id);
-        const updated = fileSystem.filter(item => !idsToDelete.includes(item.id));
+        const idsToDelete = new Set(getIdsToDelete(id));
+        const updated = fileSystem.filter(item => !idsToDelete.has(item.id));
         setFileSystem(updated);
         persistFileSystem(updated);
-        toast.success('Itens removidos do Drive');
+        if (activeFileId && idsToDelete.has(activeFileId)) setActiveFileId(null);
+        toast.success('Item removido!');
     };
 
     const handleRename = (id: string) => {
@@ -107,11 +108,9 @@ export const DriveView: React.FC = () => {
         toast.success('Documento salvo!');
     };
 
-    const filteredItems = fileSystem.filter(item => {
-        const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesFolder = item.parentId === (searchTerm ? item.parentId : currentFolderId);
-        return searchTerm ? matchesSearch : matchesFolder;
-    });
+    const filteredItems = searchTerm.trim()
+        ? fileSystem.filter(item => item.name.toLowerCase().includes(searchTerm.toLowerCase()))
+        : fileSystem.filter(item => item.parentId === currentFolderId);
 
     const breadcrumbs = [];
     let tempId = currentFolderId;

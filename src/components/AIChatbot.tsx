@@ -65,6 +65,21 @@ export function AIChatbot() {
     }
   };
 
+  const sendQuickAction = async (prompt: string) => {
+    const userMessage: ChatMessage = { role: "user", content: prompt };
+    const newMessages = [...messages, userMessage];
+    setMessages(newMessages);
+    setIsLoading(true);
+    try {
+      const response = await chatWithAI(newMessages, getFinancialContext());
+      setMessages(prev => [...prev, { role: "assistant", content: response }]);
+    } catch {
+      setMessages(prev => [...prev, { role: "assistant", content: "❌ Erro ao processar sua mensagem." }]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const quickActions = [
     { label: "📊 Analisar gastos", prompt: "Analise meus gastos do mês e me dê insights sobre onde posso economizar." },
     { label: "💰 Dicas de economia", prompt: "Me dê 5 dicas práticas para economizar baseado no meu perfil financeiro." },

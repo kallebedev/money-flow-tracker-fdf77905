@@ -5,6 +5,7 @@ import { Slider } from '@/components/ui/slider';
 import { X, Play, Pause, RotateCcw, Volume2, CloudRain, Trees, Coffee, Waves } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useProductivity } from '@/hooks/useProductivity';
+import { useProductivityStats } from '@/hooks/useProductivityStats';
 import { toast } from 'sonner';
 
 const AMBIENT_SOUNDS = [
@@ -23,12 +24,14 @@ interface FocusModeProps {
 
 const FocusMode: React.FC<FocusModeProps> = ({ onClose, activeTaskId, onSessionComplete }) => {
     const { tasks } = useProductivity();
+    const { addFocusMinutes } = useProductivityStats();
     const activeTask = tasks.find(t => t.id === activeTaskId);
 
     // Timer State
     const [timeLeft, setTimeLeft] = useState(25 * 60);
     const [isActive, setIsActive] = useState(false);
     const [mode, setMode] = useState<'work' | 'break'>('work');
+    const [focusStyle, setFocusStyle] = useState<'immersion' | 'background'>('immersion');
 
     // Audio State
     const [selectedSound, setSelectedSound] = useState<string | null>(null);
@@ -43,6 +46,7 @@ const FocusMode: React.FC<FocusModeProps> = ({ onClose, activeTaskId, onSessionC
             const nextMode = mode === 'work' ? 'break' : 'work';
             if (mode === 'work') {
                 onSessionComplete?.(25);
+                addFocusMinutes(25);
             }
             setMode(nextMode);
             setTimeLeft(nextMode === 'work' ? 25 * 60 : 5 * 60);
@@ -52,8 +56,17 @@ const FocusMode: React.FC<FocusModeProps> = ({ onClose, activeTaskId, onSessionC
         return () => clearInterval(interval);
     }, [isActive, timeLeft, mode]);
 
-    // Fullscreen effect
+    // Fullscreen effect (apenas no modo Imersão Total)
     useEffect(() => {
+        if (focusStyle !== 'immersion') {
+            if (document.fullscreenElement) {
+                document.exitFullscreen().catch(err => {
+                    console.error(`Error attempting to exit fullscreen: ${err}`);
+                });
+            }
+            return;
+        }
+
         const enterFullscreen = async () => {
             try {
                 if (!document.fullscreenElement) {
@@ -73,12 +86,15 @@ const FocusMode: React.FC<FocusModeProps> = ({ onClose, activeTaskId, onSessionC
                 });
             }
         };
-    }, []);
+    }, [focusStyle]);
 
     const handleClose = async () => {
         if (mode === 'work') {
             const workMinutesElapsed = Math.floor((25 * 60 - timeLeft) / 60);
-            if (workMinutesElapsed > 0) onSessionComplete?.(workMinutesElapsed);
+            if (workMinutesElapsed > 0) {
+                onSessionComplete?.(workMinutesElapsed);
+                addFocusMinutes(workMinutesElapsed);
+            }
         }
         if (document.fullscreenElement) {
             try {
@@ -144,6 +160,43 @@ const FocusMode: React.FC<FocusModeProps> = ({ onClose, activeTaskId, onSessionC
             </Button>
 
             <div className="max-w-4xl w-full flex flex-col items-center gap-4 sm:gap-10 text-center h-full max-h-[620px] justify-between py-4">
+                {/* Selector de modo de foco */}
+                <div className="flex items-center gap-3 mb-1">
+                    <span className="text-[9px] font-black uppercase tracking-[0.22em] text-muted-foreground/70">
+                        Modo do Santuário
+                    </span>
+                    <div className="flex items-center gap-1 bg-white/[0.03] rounded-full p-1 border border-white/[0.05]">
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant={focusStyle === 'immersion' ? 'default' : 'ghost'}
+                            className={cn(
+                                "h-7 px-3 rounded-full text-[9px] font-black uppercase tracking-[0.16em]",
+                                focusStyle === 'immersion'
+                                    ? "bg-primary text-primary-foreground"
+                                    : "text-muted-foreground hover:text-foreground"
+                            )}
+                            onClick={() => setFocusStyle('immersion')}
+                        >
+                            Imersão Total
+                        </Button>
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant={focusStyle === 'background' ? 'default' : 'ghost'}
+                            className={cn(
+                                "h-7 px-3 rounded-full text-[9px] font-black uppercase tracking-[0.16em]",
+                                focusStyle === 'background'
+                                    ? "bg-emerald-500 text-emerald-950"
+                                    : "text-muted-foreground hover:text-foreground"
+                            )}
+                            onClick={() => setFocusStyle('background')}
+                        >
+                            Segundo Plano
+                        </Button>
+                    </div>
+                </div>
+
                 {/* Active Task Info */}
                 <div className="space-y-1">
                     <span className="text-primary font-black uppercase tracking-[0.4em] text-[10px] opacity-60">
@@ -230,9 +283,16 @@ const FocusMode: React.FC<FocusModeProps> = ({ onClose, activeTaskId, onSessionC
 
                 {/* Focus Mode Footer Tag */}
                 <div className="flex items-center gap-3 px-5 py-1.5 bg-primary/2 rounded-xl border border-primary/5 backdrop-blur-md">
-                    <div className="w-1 h-1 rounded-full bg-red-500 animate-ping" />
+                    <div
+                        className={cn(
+                            "w-1 h-1 rounded-full",
+                            focusStyle === 'immersion' ? "bg-red-500 animate-ping" : "bg-emerald-400"
+                        )}
+                    />
                     <span className="text-[8px] font-black uppercase tracking-[0.3em] text-primary/80">
-                        Estado de Fluxo Ativo
+                        {focusStyle === 'immersion'
+                            ? 'Imersão Total • Distrações mínimas'
+                            : 'Timer em Segundo Plano • Você pode alternar de aba'}
                     </span>
                 </div>
             </div>

@@ -22,6 +22,10 @@ export default function TopNav() {
     const location = useLocation();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
 
+    const avatarSrc =
+        user?.user_metadata?.avatar_url ||
+        (user?.email ? `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(user.email)}` : undefined);
+
     const isFinance = location.pathname.includes("/dashboard") ||
         location.pathname.includes("/transactions") ||
         location.pathname.includes("/categories") ||
@@ -117,7 +121,7 @@ export default function TopNav() {
                         <DropdownMenuTrigger asChild>
                             <button className="relative h-8 w-8 md:h-9 md:w-9 rounded-full border border-white/[0.06] hover:border-white/[0.12] transition-colors overflow-hidden outline-none">
                                 <Avatar className="h-full w-full">
-                                    <AvatarImage src={user?.user_metadata?.avatar_url} alt={user?.email || ""} className="object-cover" />
+                                    <AvatarImage src={avatarSrc} alt={user?.email || ""} className="object-cover" />
                                     <AvatarFallback className="bg-[#111] text-[#555] text-[10px] md:text-[11px] font-black uppercase">
                                         {user?.email?.substring(0, 2)}
                                     </AvatarFallback>

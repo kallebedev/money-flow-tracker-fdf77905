@@ -8,7 +8,7 @@ import { Progress } from '@/components/ui/progress';
 import {
     Target, Briefcase, Plus, CheckCircle2, Circle, Trophy, Trash2,
     Pencil, X, Check, Youtube, Play, Folder, FileText,
-    ChevronRight, Save, ArrowLeft, Search
+    ChevronRight, Save, ArrowLeft, Search, Clock3
 } from 'lucide-react';
 import { useProductivity } from '@/hooks/useProductivity';
 import { cn } from '@/lib/utils';
@@ -31,6 +31,29 @@ type DocItem = {
     createdAt: number;
 };
 
+const getGoalDailyTargetMinutes = (goal: Goal): number | undefined => {
+    if (!goal.notes || !goal.notes.startsWith('{')) return undefined;
+    try {
+        const parsed = JSON.parse(goal.notes);
+        const value = Number(parsed?.dailyTargetMinutes);
+        return Number.isFinite(value) && value > 0 ? Math.round(value) : undefined;
+    } catch {
+        return undefined;
+    }
+};
+
+const mergeItemsIntoGoalNotes = (goal: Goal, items: DocItem[]) => {
+    let parsed: Record<string, any> = {};
+    if (goal.notes && goal.notes.startsWith('{')) {
+        try {
+            parsed = JSON.parse(goal.notes);
+        } catch {
+            parsed = {};
+        }
+    }
+    return JSON.stringify({ ...parsed, items });
+};
+
 const StrategicView: React.FC = () => {
     const {
         goals, projects,
@@ -39,6 +62,7 @@ const StrategicView: React.FC = () => {
     } = useProductivity();
 
     const [newGoal, setNewGoal] = useState('');
+    const [newGoalDailyTarget, setNewGoalDailyTarget] = useState('');
     const [newGoalYoutubeLink, setNewGoalYoutubeLink] = useState('');
     const [showNewGoalYoutubeInput, setShowNewGoalYoutubeInput] = useState(false);
     const [newProject, setNewProject] = useState('');
@@ -92,6 +116,9 @@ const StrategicView: React.FC = () => {
     const submitGoal = (type: 'annual' | 'monthly') => {
         if (!newGoal.trim()) return;
 
+        const parsedDailyTarget = Number(newGoalDailyTarget);
+        const hasDailyTarget = Number.isFinite(parsedDailyTarget) && parsedDailyTarget > 0;
+
         let finalUrl = newGoalYoutubeLink.trim();
         if (finalUrl) {
             const urlMatch = finalUrl.match(/https?:\/\/[^\s]+/);
@@ -106,10 +133,12 @@ const StrategicView: React.FC = () => {
             type,
             targetDate: new Date().toISOString(),
             youtubeLink: finalUrl || undefined,
+            notes: hasDailyTarget ? JSON.stringify({ dailyTargetMinutes: Math.round(parsedDailyTarget) }) : undefined,
             status: 'pending'
         });
 
         setNewGoal('');
+        setNewGoalDailyTarget('');
         setNewGoalYoutubeLink('');
         setShowNewGoalYoutubeInput(false);
         toast.success(`Meta ${type === 'annual' ? 'anual' : 'mensal'} adicionada!`);
@@ -197,7 +226,7 @@ const StrategicView: React.FC = () => {
     // File System Helpers
     const persistFileSystem = (items: DocItem[]) => {
         if (!docGoal) return;
-        updateGoal(docGoal.id, { notes: JSON.stringify({ items }) });
+        updateGoal(docGoal.id, { notes: mergeItemsIntoGoalNotes(docGoal, items) });
     };
 
     const handleCreateItem = (type: 'file' | 'folder') => {
@@ -264,6 +293,7 @@ const StrategicView: React.FC = () => {
 
     const renderGoalItem = (goal: Goal) => {
         const currentProgress = videoProgressMap[goal.id] !== undefined ? videoProgressMap[goal.id] : (goal.progress || 0);
+        const dailyTargetMinutes = getGoalDailyTargetMinutes(goal);
 
         return (
             <div key={goal.id} className="flex flex-col gap-2 p-3 rounded-xl bg-background/30 border border-white/[0.03] hover:border-primary/20 transition-all group">
@@ -298,6 +328,11 @@ const StrategicView: React.FC = () => {
                                 goal.status === 'achieved' && "line-through opacity-40 text-muted-foreground"
                             )}>
                                 {goal.title}
+                                {dailyTargetMinutes && (
+                                    <Badge variant="outline" className="text-[9px] border-none bg-primary/10 text-primary px-1 py-0 h-4">
+                                        <Clock3 className="w-2.5 h-2.5 mr-0.5" /> {dailyTargetMinutes} min/dia
+                                    </Badge>
+                                )}
                                 {goal.youtubeLink && (
                                     <Badge variant="outline" className="text-[9px] border-none bg-red-500/10 text-red-500 px-1 py-0 h-4 cursor-pointer" onClick={() => setActiveVideoGoal(goal)}>
                                         <Play className="w-2.5 h-2.5 mr-0.5" /> Vídeo
@@ -400,6 +435,18 @@ const StrategicView: React.FC = () => {
                                 </div>
                             </div>
                             <div className="px-2 pb-1">
+                                <div className="flex items-center gap-2 mt-1 mb-2">
+                                    <Clock3 className="w-3 h-3 text-primary" />
+                                    <Input
+                                        type="number"
+                                        min={1}
+                                        step={1}
+                                        value={newGoalDailyTarget}
+                                        onChange={(e) => setNewGoalDailyTarget(e.target.value)}
+                                        className="h-8 text-xs bg-background/50 border-white/[0.1]"
+                                        placeholder="Tempo alvo para as metricas no dia (min)"
+                                    />
+                                </div>
                                 {!showNewGoalYoutubeInput ? (
                                     <Button variant="ghost" size="sm" className="h-6 text-[10px] text-muted-foreground" onClick={() => setShowNewGoalYoutubeInput(true)}>
                                         <Youtube className="w-3 h-3 mr-1.5" /> Adicionar Vídeo
@@ -498,7 +545,7 @@ const StrategicView: React.FC = () => {
                 onSaveProgress={handleSaveProgress}
                 onLiveProgress={handleLiveProgressUpdate}
                 onSaveNotes={(items) => {
-                    if (activeVideoGoal) updateGoal(activeVideoGoal.id, { notes: JSON.stringify({ items }) });
+                    if (activeVideoGoal) updateGoal(activeVideoGoal.id, { notes: mergeItemsIntoGoalNotes(activeVideoGoal, items) });
                 }}
             />
 

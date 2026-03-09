@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Pencil, Trash2, Target, Calendar } from "lucide-react";
+import { Plus, Pencil, Trash2, Target, Calendar, PiggyBank } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { toast } from "sonner";
 
@@ -18,10 +18,13 @@ function formatCurrency(v: number) {
 const emptyForm = { name: "", targetAmount: "", currentAmount: "", deadline: "", hasDeadline: false };
 
 export default function Goals() {
-  const { goals, addGoal, updateGoal, deleteGoal } = useFinance();
+  const { goals, addGoal, updateGoal, deleteGoal, addTransaction, categories } = useFinance();
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [reserveOpen, setReserveOpen] = useState(false);
+  const [reserveGoalId, setReserveGoalId] = useState<string | null>(null);
+  const [reserveAmount, setReserveAmount] = useState("");
 
   function openNew() {
     setEditId(null);
@@ -56,6 +59,52 @@ export default function Goals() {
       toast.success("Meta criada!");
     }
     setOpen(false);
+  }
+
+  function openReserve(goalId: string) {
+    setReserveGoalId(goalId);
+    setReserveAmount("");
+    setReserveOpen(true);
+  }
+
+  function handleReserveSave() {
+    const goal = goals.find(g => g.id === reserveGoalId);
+    if (!goal) {
+      toast.error("Meta não encontrada.");
+      return;
+    }
+
+    const amount = parseFloat(reserveAmount);
+    if (!amount || amount <= 0) {
+      toast.error("Informe um valor válido para reservar.");
+      return;
+    }
+
+    if (!categories || categories.length === 0) {
+      toast.error("Crie ao menos uma categoria para registrar a reserva.");
+      return;
+    }
+
+    const investmentsCategory =
+      categories.find(c => c.name.toLowerCase().includes("invest")) || categories[0];
+
+    const today = new Date().toISOString().slice(0, 10);
+
+    // 1) Registrar transação no controle financeiro (como saída para investimentos/metas)
+    addTransaction({
+      type: "expense",
+      amount,
+      category: investmentsCategory.id,
+      date: today,
+      description: `Reserva para meta: ${goal.name}`,
+      paymentMethod: "pix",
+    } as any);
+
+    // 2) Atualizar valor reservado na meta
+    updateGoal(goal.id, { currentAmount: goal.currentAmount + amount });
+
+    toast.success("Reserva registrada e meta atualizada!");
+    setReserveOpen(false);
   }
 
   return (
@@ -123,8 +172,27 @@ export default function Goals() {
                       </div>
                     </div>
                     <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => openEdit(g)}><Pencil className="h-5 w-5" /></Button>
-                      <Button variant="ghost" size="icon" onClick={() => { deleteGoal(g.id); toast.success("Meta excluída!"); }}><Trash2 className="h-5 w-5 text-destructive" /></Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => openReserve(g.id)}
+                        title="Reservar dinheiro para esta meta"
+                      >
+                        <PiggyBank className="h-5 w-5 text-primary" />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => openEdit(g)}>
+                        <Pencil className="h-5 w-5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          deleteGoal(g.id);
+                          toast.success("Meta excluída!");
+                        }}
+                      >
+                        <Trash2 className="h-5 w-5 text-destructive" />
+                      </Button>
                     </div>
                   </div>
                   <Progress value={pct} className="h-3" />
@@ -139,6 +207,34 @@ export default function Goals() {
           })}
         </div>
       )}
+
+      <Dialog open={reserveOpen} onOpenChange={setReserveOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reservar para meta financeira</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <Label>Valor a reservar (R$)</Label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={reserveAmount}
+                onChange={(e) => setReserveAmount(e.target.value)}
+                placeholder="Ex: 200,00"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Esse valor será registrado como uma saída na categoria de investimentos/metas e somado ao valor atual da meta.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReserveOpen(false)}>Cancelar</Button>
+            <Button onClick={handleReserveSave}>Confirmar reserva</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

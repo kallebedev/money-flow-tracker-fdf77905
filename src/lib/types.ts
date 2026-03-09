@@ -62,8 +62,9 @@ export type Project = {
 export type Goal = {
   id: string;
   title: string;
-  type: 'annual' | 'monthly';
-  targetDate: string;
+  type: 'annual' | 'monthly' | 'daily';
+  /** Para metas diárias recorrentes pode ser omitido */
+  targetDate?: string;
   youtubeLink?: string;
   youtubeTimestamp?: number;
   progress?: number;

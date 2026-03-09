@@ -117,10 +117,23 @@ export const useProductivityStats = () => {
         });
     };
 
+    const addFocusMinutes = (minutes: number) => {
+        if (!stats || minutes <= 0) return;
+        const today = format(new Date(), 'yyyy-MM-dd');
+
+        const nextTotal = (stats.totalFocusMinutes || 0) + minutes;
+
+        updateStatsMutation.mutate({
+            totalFocusMinutes: nextTotal,
+            lastActiveDate: today,
+        });
+    };
+
     return {
         stats,
         isLoading,
         addExperience,
+        addFocusMinutes,
         updateStats: updateStatsMutation.mutate
     };
 };

@@ -1,7 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useFinance } from "../contexts/FinanceContext";
-import { generateBudgetAdvice, generateFinancialPlan } from "../lib/aiClient";
-import { AIBudgetAdvice } from "../lib/openai";
+import { generateBudgetAdviceAI } from "@/lib/openaiService";
 
 export interface BudgetProfileData {
     goal: "debt" | "savings" | "moderate";
@@ -9,7 +8,6 @@ export interface BudgetProfileData {
     priority: "essentials" | "future" | "lifestyle";
 }
 
-/** Respostas do questionário completo para o plano de controle financeiro */
 export interface FinancialPlanQuestionnaire {
     monthlySalary: number;
     otherIncome?: number;
@@ -25,38 +23,29 @@ export interface FinancialPlanQuestionnaire {
     goalsLongTerm?: string;
 }
 
+export interface AIBudgetAdvice {
+    overview: string;
+    buckets: { category: string; percentage: number; suggestedAmount: number; reason: string }[];
+    categoryAdvice: { categoryId: string; categoryName: string; suggestedAmount: number; advice: string }[];
+}
+
 export function useAIBudgetAdvisor(profileData?: BudgetProfileData, trigger: boolean = false) {
     const { monthlySalary, categories } = useFinance();
     const [advisor, setAdvisor] = useState<AIBudgetAdvice | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    useEffect(() => {
-        if (!trigger || !monthlySalary || monthlySalary <= 0 || !profileData) {
-            return;
-        }
-
-        const fetchAdvice = async () => {
-            setIsLoading(true);
-            setError(null);
-            try {
-                const data = await generateBudgetAdvice(monthlySalary, profileData, categories);
-                setAdvisor(data);
-            } catch (err: any) {
-                console.error("AI Budget Error:", err);
-                setError(err.message || "Erro ao gerar conselho de IA");
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        fetchAdvice();
-    }, [monthlySalary, profileData, trigger]);
+    // Auto-trigger when profile is set
+    if (trigger && monthlySalary > 0 && profileData && !advisor && !isLoading && !error) {
+        setIsLoading(true);
+        generateBudgetAdviceAI(monthlySalary, profileData, categories)
+            .then(data => { setAdvisor(data); setIsLoading(false); })
+            .catch(err => { setError(err.message); setIsLoading(false); });
+    }
 
     return { advisor, isLoading, error };
 }
 
-/** Gera plano completo a partir do questionário */
 export function useAIPlanFromQuestionnaire() {
     const { categories } = useFinance();
     const [advisor, setAdvisor] = useState<AIBudgetAdvice | null>(null);
@@ -73,13 +62,9 @@ export function useAIPlanFromQuestionnaire() {
         setError(null);
         setAdvisor(null);
         try {
-            const data = await generateFinancialPlan(
-                {
-                    ...questionnaire,
-                    goal: questionnaire.goal ?? "moderate",
-                    lifestyle: questionnaire.lifestyle ?? "comfortable",
-                    priority: questionnaire.priority ?? "essentials",
-                },
+            const data = await generateBudgetAdviceAI(
+                questionnaire.monthlySalary,
+                questionnaire,
                 categories.map(c => ({ id: c.id, name: c.name }))
             );
             setAdvisor(data);

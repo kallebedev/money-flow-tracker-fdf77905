@@ -70,18 +70,6 @@ export default function Productivity() {
                                 </span>
                             </TabsTrigger>
                             <TabsTrigger
-                                value="daily-goals"
-                                className="px-4 md:px-5 rounded-2xl text-[9px] md:text-[10px] font-black tracking-[0.22em] text-nowrap flex flex-col items-center justify-center gap-0.5 text-muted-foreground/70 data-[state=active]:text-black data-[state=active]:shadow-[0_0_30px_rgba(34,197,94,0.55)] data-[state=active]:bg-primary"
-                            >
-                                <span className="uppercase flex items-center gap-1">
-                                    <span className="text-[10px] opacity-70">1b.</span>
-                                    <span>Diário</span>
-                                </span>
-                                <span className="text-[9px] font-medium uppercase tracking-[0.2em] text-muted-foreground/80">
-                                    Metas diárias
-                                </span>
-                            </TabsTrigger>
-                            <TabsTrigger
                                 value="tactical"
                                 className="px-4 md:px-5 rounded-2xl text-[9px] md:text-[10px] font-black tracking-[0.22em] text-nowrap flex flex-col items-center justify-center gap-0.5 text-muted-foreground/70 data-[state=active]:text-black data-[state=active]:shadow-[0_0_30px_rgba(34,197,94,0.55)] data-[state=active]:bg-primary"
                             >

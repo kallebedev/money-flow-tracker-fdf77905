@@ -368,6 +368,18 @@ export const useProductivity = () => {
             if (newStatus === 'completed') {
                 const xp = (task.impact || 1) * 100;
                 addExperience(xp);
+                const meta = parseTaskMeta(task.description);
+                if (meta.taskType === 'recurring') {
+                    const today = format(new Date(), 'yyyy-MM-dd');
+                    updateTaskMutation.mutate({
+                        id,
+                        updates: {
+                            status: 'completed',
+                            description: stringifyTaskMeta({ ...meta, lastCompletedDate: today })
+                        }
+                    });
+                    return;
+                }
             }
 
             updateTaskMutation.mutate({ id, updates: { status: newStatus } });

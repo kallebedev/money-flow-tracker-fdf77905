@@ -97,6 +97,57 @@ export type FocusSession = {
   type: 'pomodoro' | 'deep-work';
 };
 
+export type PlaylistVideo = {
+  videoId: string;
+  title: string;
+  index: number;
+  watchedPercent: number;
+  status: 'not-started' | 'in-progress' | 'completed';
+};
+
+export type TaskMeta = {
+  taskType?: 'one-time' | 'recurring';
+  sourceGoalId?: string;
+  lastCompletedDate?: string;
+  text?: string;
+};
+
+export type GoalMeta = {
+  dailyTargetMinutes?: number;
+  frequency?: 'daily' | 'specific-days';
+  frequencyDays?: number[];
+  projectId?: string;
+  items?: DocItem[];
+};
+
+export const parseTaskMeta = (description?: string): TaskMeta => {
+  if (!description) return { taskType: 'one-time' };
+  try {
+    if (description.startsWith('{')) return JSON.parse(description);
+  } catch {}
+  return { taskType: 'one-time', text: description };
+};
+
+export const stringifyTaskMeta = (meta: TaskMeta): string => JSON.stringify(meta);
+
+export const parseGoalMeta = (notes?: string): GoalMeta => {
+  if (!notes) return {};
+  try {
+    if (notes.startsWith('{')) return JSON.parse(notes);
+  } catch {}
+  return {};
+};
+
+export const stringifyGoalMeta = (meta: GoalMeta): string => JSON.stringify(meta);
+
+export const parseProjectMeta = (desc?: string): { description: string; objective: string } => {
+  if (!desc) return { description: '', objective: '' };
+  try {
+    if (desc.startsWith('{')) return JSON.parse(desc);
+  } catch {}
+  return { description: desc, objective: '' };
+};
+
 export interface FinancialGoal {
   id: string;
   name: string;

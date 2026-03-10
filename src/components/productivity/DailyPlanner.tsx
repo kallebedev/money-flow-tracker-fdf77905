@@ -1,30 +1,13 @@
 import React from 'react';
-import { Goal, ProductivityTask } from '@/lib/types';
+import { Goal, ProductivityTask, parseTaskMeta, parseGoalMeta } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertTriangle, CheckCircle2, Clock, Lightbulb, PlayCircle, Trash2, Edit2, X } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { AlertTriangle, CheckCircle2, Clock, Lightbulb, PlayCircle, Trash2, Edit2, Repeat } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { format, parseISO, addMinutes, addHours } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-
+import { format, parseISO, addHours } from 'date-fns';
 import TaskEditDialog from './TaskEditDialog';
-
-const getGoalDailyTargetMinutes = (goal: Goal): number | undefined => {
-    if (!goal.notes || !goal.notes.startsWith('{')) return undefined;
-    try {
-        const parsed = JSON.parse(goal.notes);
-        const value = Number((parsed as any)?.dailyTargetMinutes);
-        return Number.isFinite(value) && value > 0 ? Math.round(value) : undefined;
-    } catch {
-        return undefined;
-    }
-};
 
 interface DailyPlannerProps {
     tasks: ProductivityTask[];
@@ -44,18 +27,20 @@ const DailyPlanner: React.FC<DailyPlannerProps> = ({ tasks, goals, onStartTask, 
         return aTime - bTime;
     });
 
+    // Filter out completed tasks
+    const pendingTasks = sortedTasks.filter(t => t.status !== 'completed');
+
     const todayStr = format(new Date(), 'yyyy-MM-dd');
 
     const goalsWithDailyTarget = goals
         .map(goal => ({
             goal,
-            dailyTargetMinutes: getGoalDailyTargetMinutes(goal),
+            dailyTargetMinutes: parseGoalMeta(goal.notes).dailyTargetMinutes,
         }))
         .filter(item => item.dailyTargetMinutes && item.goal.status !== 'achieved');
 
     const totalStrategicMinutes = goalsWithDailyTarget.reduce(
-        (acc, item) => acc + (item.dailyTargetMinutes || 0),
-        0
+        (acc, item) => acc + (item.dailyTargetMinutes || 0), 0
     );
 
     const totalTaskMinutesToday = tasks.reduce((acc, task) => {
@@ -65,37 +50,28 @@ const DailyPlanner: React.FC<DailyPlannerProps> = ({ tasks, goals, onStartTask, 
     }, 0);
 
     const totalMinutesToday = totalTaskMinutesToday + totalStrategicMinutes;
-
-    const WORK_DAY_MINUTES = 8 * 60; // 8 hours
+    const WORK_DAY_MINUTES = 8 * 60;
     const isOverloaded = totalMinutesToday > WORK_DAY_MINUTES;
 
-    // Suggestion Logic: High Impact + High Urgency first, targeting today's tasks (with schedule)
-    const suggestion = tasks
+    const suggestion = pendingTasks
         .filter(t => t.status === 'todo' && t.scheduledStartTime && t.scheduledStartTime.startsWith(todayStr))
         .sort((a, b) => (b.impact + b.urgency) - (a.impact + a.urgency))[0];
 
     return (
         <div className="space-y-6">
-            {/* Smart Suggestion */}
             {suggestion && (
                 <Alert className="bg-primary/2 border-primary/10 animate-in fade-in slide-in-from-top-2 duration-500">
                     <Lightbulb className="h-5 w-5 text-primary" />
                     <AlertTitle className="text-primary font-bold">Sugestão do Dia</AlertTitle>
                     <AlertDescription className="flex justify-between items-center">
-                        <span>
-                            Baseado na sua lista de hoje, foque em: <strong>{suggestion.title}</strong>
-                        </span>
-                        <button
-                            onClick={() => onStartTask(suggestion.id)}
-                            className="text-xs bg-primary text-primary-foreground px-2 py-1 rounded hover:opacity-90 transition-opacity"
-                        >
+                        <span>Baseado na sua lista de hoje, foque em: <strong>{suggestion.title}</strong></span>
+                        <button onClick={() => onStartTask(suggestion.id)} className="text-xs bg-primary text-primary-foreground px-2 py-1 rounded hover:opacity-90 transition-opacity">
                             Começar Agora
                         </button>
                     </AlertDescription>
                 </Alert>
             )}
 
-            {/* Overload Warning */}
             {isOverloaded && (
                 <Alert variant="destructive" className="animate-pulse">
                     <AlertTriangle className="h-5 w-5" />
@@ -103,37 +79,25 @@ const DailyPlanner: React.FC<DailyPlannerProps> = ({ tasks, goals, onStartTask, 
                     <AlertDescription>
                         Você tem {Math.round(totalMinutesToday / 60)}h de trabalho planejado para hoje.
                         {totalStrategicMinutes > 0 && (
-                            <>
-                                {' '}Inclui aproximadamente {Math.round(totalStrategicMinutes / 60)}h reservadas para metas estratégicas.
-                            </>
+                            <> Inclui ~{Math.round(totalStrategicMinutes / 60)}h de metas estratégicas.</>
                         )}
-                        Isso excede o limite saudável de 8h.
+                        {' '}Isso excede o limite saudável de 8h.
                     </AlertDescription>
                 </Alert>
             )}
 
-            {/* Strategic Daily Blocks */}
             {goalsWithDailyTarget.length > 0 && (
                 <Card className="bg-[#111] border-white/[0.03] rounded-[24px]">
                     <CardHeader className="pb-3 border-b border-white/[0.03] mb-4">
                         <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2 text-muted-foreground">
-                            <Clock className="w-3.5 h-3.5 text-primary" />
-                            Blocos estratégicos do dia
+                            <Clock className="w-3.5 h-3.5 text-primary" /> Blocos estratégicos do dia
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-2">
                         {goalsWithDailyTarget.map(({ goal, dailyTargetMinutes }) => (
-                            <div
-                                key={goal.id}
-                                className="flex items-center justify-between p-3 rounded-xl bg-white/[0.02] border border-white/[0.03]"
-                            >
-                                <span className="text-sm font-medium text-[#f0f0f0] break-words">
-                                    {goal.title}
-                                </span>
-                                <Badge
-                                    variant="outline"
-                                    className="text-[9px] font-black uppercase tracking-wider h-5 px-2 bg-primary/10 border-primary/30 text-primary"
-                                >
+                            <div key={goal.id} className="flex items-center justify-between p-3 rounded-xl bg-white/[0.02] border border-white/[0.03]">
+                                <span className="text-sm font-medium text-[#f0f0f0] break-words">{goal.title}</span>
+                                <Badge variant="outline" className="text-[9px] font-black uppercase tracking-wider h-5 px-2 bg-primary/10 border-primary/30 text-primary">
                                     {dailyTargetMinutes} min/dia
                                 </Badge>
                             </div>
@@ -142,37 +106,33 @@ const DailyPlanner: React.FC<DailyPlannerProps> = ({ tasks, goals, onStartTask, 
                 </Card>
             )}
 
-            {/* Timeline */}
             <Card className="bg-[#111] border-white/[0.03] rounded-[24px]">
                 <CardHeader className="pb-3 border-b border-white/[0.03] mb-4">
                     <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2 text-muted-foreground">
-                        <Clock className="w-3.5 h-3.5 text-primary" />
-                        Cronograma Tático
+                        <Clock className="w-3.5 h-3.5 text-primary" /> Cronograma Tático
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
                     <div className="relative border-l border-white/[0.06] ml-3 pl-8 space-y-8 py-4">
-                        {sortedTasks.map((task, index) => {
+                        {pendingTasks.map((task) => {
                             const hasSchedule = !!task.scheduledStartTime;
                             const dateOnly = hasSchedule && task.scheduledStartTime!.length === 10;
                             const startTime = hasSchedule ? parseISO(task.scheduledStartTime!) : null;
                             const endTime = startTime && !dateOnly ? addHours(startTime, task.estimatedDuration / 60) : null;
                             const isToday = hasSchedule && task.scheduledStartTime!.startsWith(todayStr);
+                            const meta = parseTaskMeta(task.description);
 
                             return (
                                 <div key={task.id} className="relative group">
-                                    {/* Timeline Dot */}
                                     <div className={cn(
                                         "absolute -left-[37px] top-1.5 w-3.5 h-3.5 rounded-full border border-[#111] z-10 transition-all",
-                                        task.status === 'completed' ? "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]" :
-                                            task.status === 'in-progress' ? "bg-primary animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.3)]" :
-                                                task.status === 'delayed' ? "bg-red-500" : "bg-white/10"
+                                        task.status === 'in-progress' ? "bg-primary animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.3)]" :
+                                            task.status === 'delayed' ? "bg-red-500" : "bg-white/10"
                                     )} />
 
                                     <div className={cn(
                                         "p-4 rounded-[20px] border transition-all duration-300",
-                                        task.status === 'in-progress' ? "bg-primary/5 border-primary/20" : "bg-white/[0.02] border-white/[0.03] group-hover:border-white/[0.08]",
-                                        task.status === 'completed' && "opacity-40 grayscale"
+                                        task.status === 'in-progress' ? "bg-primary/5 border-primary/20" : "bg-white/[0.02] border-white/[0.03] group-hover:border-white/[0.08]"
                                     )}>
                                         <div className="flex justify-between items-start mb-2">
                                             <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-60">
@@ -189,32 +149,27 @@ const DailyPlanner: React.FC<DailyPlannerProps> = ({ tasks, goals, onStartTask, 
                                                     <span className="text-amber-500/80">Sem previsão</span>
                                                 )}
                                             </span>
-                                            <Badge
-                                                variant="outline"
-                                                className="text-[9px] font-black uppercase tracking-wider h-5 px-2 bg-white/[0.02] border-white/[0.05]"
-                                            >
-                                                {task.status === 'completed' ? 'Ok' : `${task.estimatedDuration}m`}
-                                            </Badge>
+                                            <div className="flex items-center gap-1">
+                                                {meta.taskType === 'recurring' && (
+                                                    <Badge variant="outline" className="text-[8px] bg-amber-500/10 text-amber-500 border-none h-4 px-1">
+                                                        <Repeat className="w-2.5 h-2.5 mr-0.5" /> Recorrente
+                                                    </Badge>
+                                                )}
+                                                <Badge variant="outline" className="text-[9px] font-black uppercase tracking-wider h-5 px-2 bg-white/[0.02] border-white/[0.05]">
+                                                    {`${task.estimatedDuration}m`}
+                                                </Badge>
+                                            </div>
                                         </div>
 
                                         <div className="flex justify-between items-center">
-                                            <h4 className={cn(
-                                                "text-sm font-bold break-words tracking-tight text-[#f0f0f0]",
-                                                task.status === 'completed' && "line-through"
-                                            )}>
+                                            <h4 className="text-sm font-bold break-words tracking-tight text-[#f0f0f0]">
                                                 {task.title}
                                             </h4>
                                             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <button
-                                                    onClick={() => setEditingTask(task)}
-                                                    className="p-1.5 text-muted-foreground hover:text-primary transition-colors hover:bg-white/[0.05] rounded-lg"
-                                                >
+                                                <button onClick={() => setEditingTask(task)} className="p-1.5 text-muted-foreground hover:text-primary transition-colors hover:bg-white/[0.05] rounded-lg">
                                                     <Edit2 className="w-3.5 h-3.5" />
                                                 </button>
-                                                <button
-                                                    onClick={() => onDeleteTask(task.id)}
-                                                    className="p-1.5 text-muted-foreground hover:text-red-500 transition-colors hover:bg-white/[0.05] rounded-lg"
-                                                >
+                                                <button onClick={() => onDeleteTask(task.id)} className="p-1.5 text-muted-foreground hover:text-red-500 transition-colors hover:bg-white/[0.05] rounded-lg">
                                                     <Trash2 className="w-3.5 h-3.5" />
                                                 </button>
                                             </div>
@@ -223,18 +178,12 @@ const DailyPlanner: React.FC<DailyPlannerProps> = ({ tasks, goals, onStartTask, 
                                         {task.status !== 'completed' && (
                                             <div className="flex gap-2 mt-3">
                                                 {task.status === 'todo' && (
-                                                    <button
-                                                        onClick={() => onStartTask(task.id)}
-                                                        className="flex items-center gap-1 text-[10px] bg-primary/10 text-primary px-2 py-1 rounded hover:bg-primary/20 transition-colors"
-                                                    >
+                                                    <button onClick={() => onStartTask(task.id)} className="flex items-center gap-1 text-[10px] bg-primary/10 text-primary px-2 py-1 rounded hover:bg-primary/20 transition-colors">
                                                         <PlayCircle className="w-4 h-4" /> Iniciar
                                                     </button>
                                                 )}
                                                 {task.status === 'in-progress' && (
-                                                    <button
-                                                        onClick={() => onCompleteTask(task.id)}
-                                                        className="flex items-center gap-1 text-[10px] bg-green-500/10 text-green-600 px-2 py-1 rounded hover:bg-green-500/20 transition-colors"
-                                                    >
+                                                    <button onClick={() => onCompleteTask(task.id)} className="flex items-center gap-1 text-[10px] bg-green-500/10 text-green-600 px-2 py-1 rounded hover:bg-green-500/20 transition-colors">
                                                         <CheckCircle2 className="w-4 h-4" /> Concluir
                                                     </button>
                                                 )}
@@ -245,9 +194,9 @@ const DailyPlanner: React.FC<DailyPlannerProps> = ({ tasks, goals, onStartTask, 
                             );
                         })}
 
-                        {tasks.length === 0 && (
+                        {pendingTasks.length === 0 && (
                             <div className="text-center py-8 text-muted-foreground">
-                                <p className="text-sm">Nenhuma tarefa agendada para hoje.</p>
+                                <p className="text-sm">Nenhuma tarefa pendente. 🎉</p>
                             </div>
                         )}
                     </div>

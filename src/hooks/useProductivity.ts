@@ -342,8 +342,22 @@ export const useProductivity = () => {
         startTask: (id: string) => updateTaskMutation.mutate({ id, updates: { status: 'in-progress' } }),
         completeTask: (id: string) => {
             const task = tasks.find(t => t.id === id);
-            if (task) addExperience((task.impact || 1) * 100);
-            updateTaskMutation.mutate({ id, updates: { status: 'completed' } });
+            if (task) {
+                addExperience((task.impact || 1) * 100);
+                const meta = parseTaskMeta(task.description);
+                if (meta.taskType === 'recurring') {
+                    const today = format(new Date(), 'yyyy-MM-dd');
+                    updateTaskMutation.mutate({
+                        id,
+                        updates: {
+                            status: 'completed',
+                            description: stringifyTaskMeta({ ...meta, lastCompletedDate: today })
+                        }
+                    });
+                } else {
+                    updateTaskMutation.mutate({ id, updates: { status: 'completed' } });
+                }
+            }
         },
         delayTask: (id: string, minutes: number) => delayTaskMutation.mutate({ id, minutes }),
         toggleStatus: (id: string) => {

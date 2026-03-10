@@ -56,7 +56,7 @@ export type Project = {
   description?: string;
   color: string;
   deadline?: string;
-  status: 'active' | 'completed' | 'on-hold';
+  status: 'planning' | 'active' | 'completed' | 'on-hold';
 };
 
 export type Goal = {

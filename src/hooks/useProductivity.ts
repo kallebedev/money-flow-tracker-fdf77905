@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
-import { ProductivityTask, Goal, Project, PersonalLog } from '@/lib/types';
+import { ProductivityTask, Goal, Project, PersonalLog, parseTaskMeta, stringifyTaskMeta } from '@/lib/types';
 import { rescheduleFollowingTasks } from '@/lib/productivity/Rescheduler';
 import { useProductivityStats } from './useProductivityStats';
 import { formatISO, format } from 'date-fns';
@@ -342,8 +342,22 @@ export const useProductivity = () => {
         startTask: (id: string) => updateTaskMutation.mutate({ id, updates: { status: 'in-progress' } }),
         completeTask: (id: string) => {
             const task = tasks.find(t => t.id === id);
-            if (task) addExperience((task.impact || 1) * 100);
-            updateTaskMutation.mutate({ id, updates: { status: 'completed' } });
+            if (task) {
+                addExperience((task.impact || 1) * 100);
+                const meta = parseTaskMeta(task.description);
+                if (meta.taskType === 'recurring') {
+                    const today = format(new Date(), 'yyyy-MM-dd');
+                    updateTaskMutation.mutate({
+                        id,
+                        updates: {
+                            status: 'completed',
+                            description: stringifyTaskMeta({ ...meta, lastCompletedDate: today })
+                        }
+                    });
+                } else {
+                    updateTaskMutation.mutate({ id, updates: { status: 'completed' } });
+                }
+            }
         },
         delayTask: (id: string, minutes: number) => delayTaskMutation.mutate({ id, minutes }),
         toggleStatus: (id: string) => {
@@ -354,6 +368,18 @@ export const useProductivity = () => {
             if (newStatus === 'completed') {
                 const xp = (task.impact || 1) * 100;
                 addExperience(xp);
+                const meta = parseTaskMeta(task.description);
+                if (meta.taskType === 'recurring') {
+                    const today = format(new Date(), 'yyyy-MM-dd');
+                    updateTaskMutation.mutate({
+                        id,
+                        updates: {
+                            status: 'completed',
+                            description: stringifyTaskMeta({ ...meta, lastCompletedDate: today })
+                        }
+                    });
+                    return;
+                }
             }
 
             updateTaskMutation.mutate({ id, updates: { status: newStatus } });

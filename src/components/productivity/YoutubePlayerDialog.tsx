@@ -1,18 +1,20 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import ReactPlayer from 'react-player';
-import { Goal, DocItem } from '@/lib/types';
+import { Goal, DocItem, PlaylistVideo } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import {
     Youtube, Folder, FileText, ChevronRight, Save,
     ArrowLeft, Plus, Trash2, X, Maximize2, Minimize2,
-    Search, Pencil
+    Search, Pencil, List, Brain
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { RichTextEditor } from './RichTextEditor';
+import { useFocusTracker } from '@/hooks/useFocusTracker';
 
 interface YoutubePlayerDialogProps {
     goal: Goal | null;
@@ -36,6 +38,15 @@ export const YoutubePlayerDialog: React.FC<YoutubePlayerDialogProps> = ({
     const lastKnownTimestampRef = useRef(0);
     const saveIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
+    // Playlist state
+    const [playlistVideos, setPlaylistVideos] = useState<PlaylistVideo[]>([]);
+    const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
+    const [showPlaylist, setShowPlaylist] = useState(true);
+    const [isPlaying, setIsPlaying] = useState(false);
+
+    // Focus tracking
+    const { focusScore, totalFocusSeconds, totalAwaySeconds, distractions, pauses, recordPause } = useFocusTracker(isOpen && isPlaying);
+
     // Documentation States
     const [localFileSystem, setLocalFileSystem] = useState<DocItem[]>(docItems);
     const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
@@ -50,28 +61,46 @@ export const YoutubePlayerDialog: React.FC<YoutubePlayerDialogProps> = ({
     useEffect(() => {
         if (isOpen) {
             setLocalFileSystem(docItems);
+            setPlaylistVideos([]);
+            setCurrentVideoIndex(0);
         }
     }, [docItems, isOpen]);
 
+    // URL processing
+    const extractUrl = (text: string) => {
+        if (!text) return '';
+        const match = text.match(/https?:\/\/[^\s]+/);
+        return match ? match[0] : text;
+    };
+
+    const cleanUrl = (() => {
+        const extracted = extractUrl(goal?.youtubeLink || '');
+        if (!extracted) return '';
+        if (extracted.includes('youtube.com') || extracted.includes('youtu.be')) {
+            if (!/^https?:\/\//i.test(extracted)) return `https://${extracted}`;
+            return extracted;
+        }
+        return extracted;
+    })();
+
+    const isYouTube = cleanUrl.includes('youtube.com') || cleanUrl.includes('youtu.be');
+    const isPlaylist = cleanUrl.includes('list=');
+
+    // Progress handlers
     const saveCurrentProgress = useCallback(() => {
         if (!goal) return;
-
         let progress = lastKnownProgressRef.current;
         let timestamp = Math.floor(lastKnownTimestampRef.current);
-
         if (playerRef.current) {
             try {
                 const currentTime = playerRef.current.getCurrentTime();
                 if (currentTime > 0) {
                     timestamp = Math.floor(currentTime);
                     const duration = playerRef.current.getDuration();
-                    if (duration > 0) {
-                        progress = Math.round((currentTime / duration) * 100);
-                    }
+                    if (duration > 0) progress = Math.round((currentTime / duration) * 100);
                 }
             } catch (e) { }
         }
-
         if (onSaveProgress && (progress > 0 || timestamp > 0)) {
             onSaveProgress(goal.id, progress, timestamp);
         }
@@ -79,32 +108,78 @@ export const YoutubePlayerDialog: React.FC<YoutubePlayerDialogProps> = ({
 
     const handleProgress = useCallback((state: any) => {
         if (!goal || state.seeking) return;
-        let globalProgress = Math.round((state.played || 0) * 100);
+        const globalProgress = Math.round((state.played || 0) * 100);
         lastKnownProgressRef.current = globalProgress;
         if (state.playedSeconds > 0) lastKnownTimestampRef.current = state.playedSeconds;
         if (lastKnownProgress !== globalProgress) setLastKnownProgress(globalProgress);
         if (onLiveProgress && goal) onLiveProgress(goal.id, globalProgress);
-    }, [goal, onLiveProgress, lastKnownProgress]);
+
+        // Update playlist video progress
+        if (isPlaylist && playlistVideos.length > 0) {
+            try {
+                const internal = playerRef.current?.getInternalPlayer();
+                const idx = internal?.getPlaylistIndex?.() ?? currentVideoIndex;
+                if (idx !== currentVideoIndex) setCurrentVideoIndex(idx);
+                const percent = Math.round((state.played || 0) * 100);
+                setPlaylistVideos(prev => prev.map((v, i) => {
+                    if (i === idx) {
+                        const newPercent = Math.max(v.watchedPercent, percent);
+                        const status = newPercent < 20 ? 'not-started' : newPercent >= 90 ? 'completed' : 'in-progress';
+                        return { ...v, watchedPercent: newPercent, status };
+                    }
+                    return v;
+                }));
+            } catch { }
+        }
+    }, [goal, onLiveProgress, lastKnownProgress, isPlaylist, currentVideoIndex, playlistVideos.length]);
 
     const handlePlay = useCallback(() => {
+        setIsPlaying(true);
         if (saveIntervalRef.current) clearInterval(saveIntervalRef.current);
         saveIntervalRef.current = setInterval(() => saveCurrentProgress(), 5000);
     }, [saveCurrentProgress]);
 
     const handlePauseOrEnd = useCallback(() => {
-        if (saveIntervalRef.current) {
-            clearInterval(saveIntervalRef.current);
-            saveIntervalRef.current = null;
-        }
+        setIsPlaying(false);
+        recordPause();
+        if (saveIntervalRef.current) { clearInterval(saveIntervalRef.current); saveIntervalRef.current = null; }
         saveCurrentProgress();
-    }, [saveCurrentProgress]);
+    }, [saveCurrentProgress, recordPause]);
 
-    // Documentation Helpers
+    const handleReady = useCallback(() => {
+        if (!isPlaylist) return;
+        try {
+            const internal = playerRef.current?.getInternalPlayer();
+            const videoIds: string[] = internal?.getPlaylist?.() || [];
+            if (videoIds.length > 0) {
+                setPlaylistVideos(videoIds.map((vid, idx) => ({
+                    videoId: vid, title: `Vídeo ${idx + 1}`, index: idx, watchedPercent: 0, status: 'not-started' as const,
+                })));
+                videoIds.forEach((vid, idx) => {
+                    fetch(`https://noembed.com/embed?url=https://www.youtube.com/watch?v=${vid}`)
+                        .then(r => r.json())
+                        .then(data => {
+                            if (data.title) {
+                                setPlaylistVideos(prev => prev.map((v, i) => i === idx ? { ...v, title: data.title } : v));
+                            }
+                        }).catch(() => { });
+                });
+            }
+        } catch (e) { console.error(e); }
+    }, [isPlaylist]);
+
+    const playVideoAt = (idx: number) => {
+        try {
+            const internal = playerRef.current?.getInternalPlayer();
+            internal?.playVideoAt?.(idx);
+            setCurrentVideoIndex(idx);
+        } catch { }
+    };
+
+    // Doc system handlers (with recursive delete fix)
     const handleSaveLocalFile = () => {
         if (!activeFileId) return;
-        const updated = localFileSystem.map(item =>
-            item.id === activeFileId ? { ...item, content: noteDraft } : item
-        );
+        const updated = localFileSystem.map(item => item.id === activeFileId ? { ...item, content: noteDraft } : item);
         setLocalFileSystem(updated);
         if (onSaveNotes) onSaveNotes(updated);
         toast.success('Nota salva!');
@@ -114,32 +189,36 @@ export const YoutubePlayerDialog: React.FC<YoutubePlayerDialogProps> = ({
         const newItem: DocItem = {
             id: Math.random().toString(36).substr(2, 9),
             name: type === 'file' ? 'Nota de Estudo' : 'Nova Pasta',
-            type,
-            content: '',
-            parentId: currentFolderId,
-            createdAt: Date.now()
+            type, content: '', parentId: currentFolderId, createdAt: Date.now()
         };
         const updated = [...localFileSystem, newItem];
         setLocalFileSystem(updated);
         if (onSaveNotes) onSaveNotes(updated);
-        if (type === 'file') {
-            setActiveFileId(newItem.id);
-            setNoteDraft('');
-        }
+        if (type === 'file') { setActiveFileId(newItem.id); setNoteDraft(''); }
     };
 
+    // Recursive delete fix
     const handleDeleteLocalItem = (id: string) => {
-        const updated = localFileSystem.filter(item => item.id !== id);
+        const getIdsToDelete = (parentId: string): string[] => {
+            const children = localFileSystem.filter(i => i.parentId === parentId);
+            let ids = [parentId];
+            children.forEach(c => {
+                if (c.type === 'folder') ids = [...ids, ...getIdsToDelete(c.id)];
+                else ids.push(c.id);
+            });
+            return ids;
+        };
+        const idsToDelete = new Set(getIdsToDelete(id));
+        const updated = localFileSystem.filter(item => !idsToDelete.has(item.id));
         setLocalFileSystem(updated);
         if (onSaveNotes) onSaveNotes(updated);
-        toast.success('Nota removida');
+        if (activeFileId && idsToDelete.has(activeFileId)) setActiveFileId(null);
+        toast.success('Item removido');
     };
 
     const handleRenameLocalDoc = (id: string) => {
         if (!editNameValue.trim()) return;
-        const updated = localFileSystem.map(item =>
-            item.id === id ? { ...item, name: editNameValue.trim() } : item
-        );
+        const updated = localFileSystem.map(item => item.id === id ? { ...item, name: editNameValue.trim() } : item);
         setLocalFileSystem(updated);
         if (onSaveNotes) onSaveNotes(updated);
         setEditingDocId(null);
@@ -147,42 +226,20 @@ export const YoutubePlayerDialog: React.FC<YoutubePlayerDialogProps> = ({
     };
 
     const filteredDocItems = localFileSystem.filter(item => {
-        const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesFolder = item.parentId === (searchTerm ? item.parentId : currentFolderId);
-        return searchTerm ? matchesSearch : matchesFolder;
+        if (searchTerm) return item.name.toLowerCase().includes(searchTerm.toLowerCase());
+        return item.parentId === currentFolderId;
     });
 
-    const breadcrumbs = [];
+    const breadcrumbs: DocItem[] = [];
     let tempId = currentFolderId;
     while (tempId) {
         const folder = localFileSystem.find(i => i.id === tempId);
-        if (folder) {
-            breadcrumbs.unshift(folder);
-            tempId = folder.parentId;
-        } else break;
+        if (folder) { breadcrumbs.unshift(folder); tempId = folder.parentId; } else break;
     }
 
+    const completedCount = playlistVideos.filter(v => v.status === 'completed').length;
+
     if (!goal || !goal.youtubeLink) return null;
-
-    const extractUrl = (text: string) => {
-        if (!text) return '';
-        const match = text.match(/https?:\/\/[^\s]+/);
-        return match ? match[0] : text;
-    };
-
-    const cleanUrl = (() => {
-        const extracted = extractUrl(goal.youtubeLink || '');
-        if (!extracted) return '';
-        // Basic check to see if it looks like a URL
-        if (extracted.includes('youtube.com') || extracted.includes('youtu.be')) {
-            if (!/^https?:\/\//i.test(extracted)) return `https://${extracted}`;
-            return extracted;
-        }
-        // If it's not a youtube link but we are in a youtube player dialog, we might want to flag it
-        return extracted;
-    })();
-
-    const isYouTube = cleanUrl.includes('youtube.com') || cleanUrl.includes('youtu.be') || cleanUrl.includes('vimeo.com') || cleanUrl.includes('facebook.com');
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => {
@@ -194,11 +251,13 @@ export const YoutubePlayerDialog: React.FC<YoutubePlayerDialogProps> = ({
         }}>
             <DialogContent className={cn(
                 "p-0 overflow-hidden bg-[#0a0a0a] border-white/[0.05] shadow-2xl transition-all duration-500 rounded-[32px]",
-                isFullScreen ? "sm:max-w-[95vw] h-[90vh]" : "sm:max-w-[1200px] h-[80vh]"
+                isFullScreen ? "sm:max-w-[95vw] h-[90vh]" : isPlaylist && playlistVideos.length > 0 ? "sm:max-w-[1400px] h-[80vh]" : "sm:max-w-[1200px] h-[80vh]"
             )}>
                 <div className="flex h-full flex-col lg:flex-row divide-x divide-white/[0.05]">
-                    {/* Left: Video Player (Col 7/12) */}
-                    <div className="flex-1 lg:flex-[7] bg-[#050505] flex flex-col relative min-h-[300px]">
+                    {/* Left: Video Player */}
+                    <div className={cn("flex-1 bg-[#050505] flex flex-col relative min-h-[300px]",
+                        isPlaylist && playlistVideos.length > 0 ? "lg:flex-[5]" : "lg:flex-[7]"
+                    )}>
                         <div className="flex-1 relative group bg-black">
                             <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20">
                                 <Youtube className="w-12 h-12 text-white" />
@@ -211,77 +270,108 @@ export const YoutubePlayerDialog: React.FC<YoutubePlayerDialogProps> = ({
                                 <ReactPlayer
                                     ref={playerRef}
                                     url={cleanUrl}
-                                    width="100%"
-                                    height="100%"
-                                    controls={true}
-                                    playing={isOpen && !videoError}
+                                    width="100%" height="100%"
+                                    controls playing={isOpen && !videoError}
                                     onPlay={handlePlay}
                                     onProgress={handleProgress}
                                     onPause={handlePauseOrEnd}
                                     onEnded={handlePauseOrEnd}
-                                    onError={(e) => {
-                                        console.error("Video Error:", e);
-                                        setVideoError("Erro ao carregar o vídeo. Verifique se o link está correto ou se o vídeo é privado.");
-                                    }}
-                                    // @ts-ignore
+                                    onReady={handleReady}
+                                    onError={(e) => { console.error("Video Error:", e); setVideoError("Erro ao carregar o vídeo."); }}
                                     config={{ youtube: { playerVars: { start: Math.floor(goal.youtubeTimestamp || 0), modestbranding: 1, rel: 0 } } }}
                                 />
                             )}
-
                             {videoError && (
                                 <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6 text-red-400 bg-black/80 backdrop-blur-sm z-10">
                                     <X className="w-8 h-8 mb-4 border-2 border-red-400 rounded-full p-1" />
-                                    <p className="text-sm font-bold uppercase tracking-widest">{videoError}</p>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => setVideoError(null)}
-                                        className="mt-4 border-red-400/20 text-red-300 hover:bg-red-400/10"
-                                    >
-                                        Tentar Novamente
-                                    </Button>
+                                    <p className="text-sm font-bold">{videoError}</p>
+                                    <Button variant="outline" size="sm" onClick={() => setVideoError(null)} className="mt-4 border-red-400/20 text-red-300">Tentar Novamente</Button>
                                 </div>
                             )}
-
-                            {/* Player Tools Overlay */}
+                            {/* Focus Score Overlay */}
+                            <div className="absolute bottom-4 left-4 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-md border border-white/10">
+                                    <Brain className="w-3 h-3 text-primary" />
+                                    <span className="text-[10px] font-black text-white/90 tabular-nums">{focusScore}%</span>
+                                </div>
+                                {distractions > 0 && (
+                                    <div className="px-2 py-1 rounded-full bg-red-500/20 backdrop-blur-md border border-red-500/20">
+                                        <span className="text-[9px] font-bold text-red-400">{distractions} distrações</span>
+                                    </div>
+                                )}
+                            </div>
+                            {/* Player Tools */}
                             <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <Button
-                                    size="icon"
-                                    variant="secondary"
-                                    className="h-8 w-8 rounded-full bg-black/60 hover:bg-black/80 border border-white/10 backdrop-blur-md"
-                                    onClick={() => setIsFullScreen(!isFullScreen)}
-                                >
+                                {isPlaylist && (
+                                    <Button size="icon" variant="secondary" className="h-8 w-8 rounded-full bg-black/60 hover:bg-black/80 border border-white/10 backdrop-blur-md" onClick={() => setShowPlaylist(!showPlaylist)}>
+                                        <List className="w-3.5 h-3.5" />
+                                    </Button>
+                                )}
+                                <Button size="icon" variant="secondary" className="h-8 w-8 rounded-full bg-black/60 hover:bg-black/80 border border-white/10 backdrop-blur-md" onClick={() => setIsFullScreen(!isFullScreen)}>
                                     {isFullScreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
                                 </Button>
-                                <Button
-                                    size="icon"
-                                    variant="secondary"
-                                    className="h-8 w-8 rounded-full bg-black/60 hover:bg-black/80 border border-white/10 backdrop-blur-md"
-                                    onClick={onClose}
-                                >
+                                <Button size="icon" variant="secondary" className="h-8 w-8 rounded-full bg-black/60 hover:bg-black/80 border border-white/10 backdrop-blur-md" onClick={onClose}>
                                     <X className="w-3.5 h-3.5" />
                                 </Button>
                             </div>
                         </div>
-
                         {/* Video Info Bar */}
                         <div className="p-4 border-t border-white/[0.05] bg-white/[0.02]">
                             <h3 className="text-sm font-bold text-white/90 line-clamp-1">{goal.title}</h3>
                             <div className="flex items-center gap-2 mt-1">
                                 <Badge variant="outline" className="text-[10px] bg-red-500/10 text-red-500 border-none px-1.5 py-0 h-4 uppercase tracking-widest font-black">Estudo Ativo</Badge>
-                                <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-widest">Sincronizado com Drive</span>
+                                {isPlaylist && playlistVideos.length > 0 && (
+                                    <span className="text-[10px] text-muted-foreground font-bold">{completedCount}/{playlistVideos.length} concluídos</span>
+                                )}
                             </div>
                         </div>
                     </div>
 
-                    {/* Right: Study Docs (Col 5/12) */}
-                    <div className="flex-1 lg:flex-[5] bg-[#0a0a0a] flex flex-col h-full overflow-hidden">
-                        <div className="p-4 border-b border-white/[0.05] bg-white/[0.01] flex items-center justify-between">
+                    {/* Playlist Sidebar */}
+                    {isPlaylist && playlistVideos.length > 0 && showPlaylist && (
+                        <div className="lg:flex-[2] flex flex-col h-full bg-[#080808] overflow-hidden min-w-0">
+                            <div className="p-3 border-b border-white/[0.05] flex items-center justify-between shrink-0">
+                                <div className="flex items-center gap-2">
+                                    <List className="w-3.5 h-3.5 text-red-500" />
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-white/40">Playlist</span>
+                                </div>
+                                <span className="text-[9px] font-black text-primary tabular-nums">{completedCount}/{playlistVideos.length}</span>
+                            </div>
+                            <div className="flex-1 overflow-y-auto custom-scrollbar">
+                                <div className="p-2 space-y-0.5">
+                                    {playlistVideos.map((video, idx) => (
+                                        <div key={video.videoId}
+                                            className={cn(
+                                                "flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-all text-[11px]",
+                                                idx === currentVideoIndex ? "bg-primary/10 border border-primary/20" : "hover:bg-white/[0.03]"
+                                            )}
+                                            onClick={() => playVideoAt(idx)}
+                                        >
+                                            <span className="text-[9px] font-black text-muted-foreground w-5 text-right shrink-0">{idx + 1}</span>
+                                            <span className="shrink-0">{video.status === 'completed' ? '✅' : video.status === 'in-progress' ? '🟨' : '⬜'}</span>
+                                            <span className={cn("flex-1 truncate text-[10px]", idx === currentVideoIndex && "text-primary font-bold")}>{video.title}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="p-3 border-t border-white/[0.05] shrink-0">
+                                <div className="flex justify-between text-[9px] font-black text-muted-foreground mb-1">
+                                    <span>Progresso</span>
+                                    <span>{completedCount}/{playlistVideos.length}</span>
+                                </div>
+                                <Progress value={playlistVideos.length > 0 ? (completedCount / playlistVideos.length) * 100 : 0} className="h-1 bg-white/[0.05]" />
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Right: Study Docs */}
+                    <div className={cn("flex-1 bg-[#0a0a0a] flex flex-col h-full overflow-hidden relative z-10",
+                        isPlaylist && playlistVideos.length > 0 ? "lg:flex-[3]" : "lg:flex-[5]"
+                    )}>
+                        <div className="p-4 border-b border-white/[0.05] bg-white/[0.01] flex items-center justify-between shrink-0">
                             <div className="flex flex-col min-w-0">
                                 <div className="flex items-center gap-2">
-                                    <div className="p-2 bg-blue-500/10 rounded-lg">
-                                        <Folder className="w-3.5 h-3.5 text-blue-500" />
-                                    </div>
+                                    <div className="p-2 bg-blue-500/10 rounded-lg"><Folder className="w-3.5 h-3.5 text-blue-500" /></div>
                                     <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white/40">Notas de Estudo</span>
                                 </div>
                                 <div className="flex items-center gap-1.5 mt-1 text-[8px] font-black text-muted-foreground uppercase tracking-widest overflow-hidden">
@@ -298,52 +388,40 @@ export const YoutubePlayerDialog: React.FC<YoutubePlayerDialogProps> = ({
                                 {!activeFileId && (
                                     <div className="relative w-24 md:w-32">
                                         <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
-                                        <Input
-                                            placeholder="Buscar..."
-                                            value={searchTerm}
-                                            onChange={(e) => setSearchTerm(e.target.value)}
-                                            className="pl-6 h-7 text-[10px] bg-white/[0.02] border-white/[0.05] rounded-lg"
-                                        />
+                                        <Input placeholder="Buscar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-6 h-7 text-[10px] bg-white/[0.02] border-white/[0.05] rounded-lg" />
                                     </div>
                                 )}
                                 <div className="flex gap-1">
                                     {!activeFileId ? (
-                                        <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg" onClick={() => handleCreateLocalItem('file')}>
-                                            <Plus className="w-3.5 h-3.5 text-blue-500" />
-                                        </Button>
+                                        <>
+                                            <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg" onClick={() => handleCreateLocalItem('folder')}><Folder className="w-3.5 h-3.5 text-blue-500" /></Button>
+                                            <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg" onClick={() => handleCreateLocalItem('file')}><Plus className="w-3.5 h-3.5 text-blue-500" /></Button>
+                                        </>
                                     ) : (
-                                        <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20" onClick={handleSaveLocalFile}>
-                                            <Save className="w-3.5 h-3.5 text-emerald-500" />
-                                        </Button>
+                                        <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20" onClick={handleSaveLocalFile}><Save className="w-3.5 h-3.5 text-emerald-500" /></Button>
                                     )}
                                 </div>
                             </div>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+                        <div className="flex-1 overflow-y-auto p-4 custom-scrollbar relative z-20">
                             {activeFileId ? (
                                 <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
                                     <Button variant="ghost" size="sm" onClick={() => setActiveFileId(null)} className="h-7 text-[9px] font-black uppercase tracking-widest gap-2 -ml-2">
                                         <ArrowLeft className="w-3 h-3" /> Arquivos
                                     </Button>
-                                    <RichTextEditor
-                                        content={noteDraft}
-                                        onChange={setNoteDraft}
-                                        placeholder="Tome nota de algo importante..."
-                                    />
+                                    <RichTextEditor content={noteDraft} onChange={setNoteDraft} placeholder="Tome nota de algo importante..." />
                                     <div className="mt-3 flex items-center gap-3">
                                         <Button onClick={handleSaveLocalFile} className="h-8 px-5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-[9px] font-black uppercase tracking-widest gap-2">
-                                            <Save className="w-3 h-3" />
-                                            Salvar
+                                            <Save className="w-3 h-3" /> Salvar
                                         </Button>
                                     </div>
                                 </div>
                             ) : (
                                 <div className="grid grid-cols-1 gap-2">
                                     {filteredDocItems.map(item => (
-                                        <div
-                                            key={item.id}
-                                            className="group flex items-center gap-3 p-3 rounded-2xl bg-white/[0.02] border border-white/[0.03] hover:bg-white/[0.05] hover:border-white/[0.1] transition-all cursor-pointer relative"
+                                        <div key={item.id}
+                                            className="group flex items-center gap-3 p-3 rounded-2xl bg-white/[0.02] border border-white/[0.03] hover:bg-white/[0.05] hover:border-white/[0.1] transition-all cursor-pointer relative z-30"
                                             onClick={() => item.type === 'folder' ? (setCurrentFolderId(item.id), setSearchTerm('')) : (setActiveFileId(item.id), setNoteDraft(item.content || ''))}
                                         >
                                             <div className={cn("p-2 rounded-lg", item.type === 'folder' ? "bg-blue-500/10 text-blue-500" : "bg-emerald-500/10 text-emerald-500")}>
@@ -352,16 +430,8 @@ export const YoutubePlayerDialog: React.FC<YoutubePlayerDialogProps> = ({
                                             <div className="flex-1 min-w-0">
                                                 {editingDocId === item.id ? (
                                                     <div className="flex gap-1" onClick={e => e.stopPropagation()}>
-                                                        <Input
-                                                            value={editNameValue}
-                                                            onChange={e => setEditNameValue(e.target.value)}
-                                                            onKeyDown={e => e.key === 'Enter' && handleRenameLocalDoc(item.id)}
-                                                            className="h-6 text-[10px] px-1"
-                                                            autoFocus
-                                                        />
-                                                        <Button size="icon" variant="ghost" className="h-6 w-6 text-emerald-500" onClick={() => handleRenameLocalDoc(item.id)}>
-                                                            <Save className="w-3 h-3" />
-                                                        </Button>
+                                                        <Input value={editNameValue} onChange={e => setEditNameValue(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleRenameLocalDoc(item.id); if (e.key === 'Escape') setEditingDocId(null); }} className="h-6 text-[10px] px-1" autoFocus />
+                                                        <Button size="icon" variant="ghost" className="h-6 w-6 text-emerald-500" onClick={() => handleRenameLocalDoc(item.id)}><Save className="w-3 h-3" /></Button>
                                                     </div>
                                                 ) : (
                                                     <>
@@ -370,18 +440,13 @@ export const YoutubePlayerDialog: React.FC<YoutubePlayerDialogProps> = ({
                                                     </>
                                                 )}
                                             </div>
-                                            <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <Button
-                                                    size="sm"
-                                                    variant="ghost"
-                                                    className="h-7 px-2 rounded-lg hover:bg-white/10 text-[9px] font-bold uppercase tracking-wider gap-1"
-                                                    title={item.type === 'folder' ? 'Renomear pasta' : 'Renomear documento'}
-                                                    onClick={(e) => { e.stopPropagation(); setEditingDocId(item.id); setEditNameValue(item.name); }}
-                                                >
-                                                    <Pencil className="w-3 h-3" />
-                                                    Renomear
+                                            <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity relative z-40" onClick={e => e.stopPropagation()}>
+                                                <Button size="sm" variant="ghost" className="h-7 px-2 rounded-lg hover:bg-white/10 text-[9px] font-bold uppercase tracking-wider gap-1"
+                                                    onClick={() => { setEditingDocId(item.id); setEditNameValue(item.name); }}>
+                                                    <Pencil className="w-3 h-3" /> Renomear
                                                 </Button>
-                                                <Button size="icon" variant="ghost" className="h-7 w-7 rounded-full hover:bg-red-500/20 hover:text-red-500" title="Excluir" onClick={(e) => { e.stopPropagation(); handleDeleteLocalItem(item.id); }}>
+                                                <Button size="icon" variant="ghost" className="h-7 w-7 rounded-full hover:bg-red-500/20 hover:text-red-500"
+                                                    onClick={() => handleDeleteLocalItem(item.id)}>
                                                     <Trash2 className="w-3 h-3" />
                                                 </Button>
                                             </div>
@@ -389,17 +454,15 @@ export const YoutubePlayerDialog: React.FC<YoutubePlayerDialogProps> = ({
                                     ))}
                                     {filteredDocItems.length === 0 && (
                                         <div className="py-20 flex flex-col items-center justify-center opacity-10">
-                                            <Plus className="w-8 h-8 mb-2" />
-                                            <p className="text-[10px] font-black uppercase tracking-widest">Sem notas</p>
+                                            <Plus className="w-8 h-8 mb-2" /><p className="text-[10px] font-black uppercase tracking-widest">Sem notas</p>
                                         </div>
                                     )}
                                 </div>
                             )}
                         </div>
 
-                        {/* Breadcrumbs for Side Panel */}
                         {!activeFileId && currentFolderId && (
-                            <div className="p-3 border-t border-white/[0.05] bg-black/40">
+                            <div className="p-3 border-t border-white/[0.05] bg-black/40 shrink-0">
                                 <Button variant="ghost" size="sm" onClick={() => setCurrentFolderId(null)} className="h-6 text-[9px] font-black uppercase tracking-widest">
                                     <ArrowLeft className="w-3 h-3 mr-2" /> Voltar ao Início
                                 </Button>

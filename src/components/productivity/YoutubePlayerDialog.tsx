@@ -288,7 +288,7 @@ export const YoutubePlayerDialog: React.FC<YoutubePlayerDialogProps> = ({
             }
         }}>
             <DialogContent className={cn(
-                "p-0 overflow-hidden bg-[#0a0a0a] border-white/[0.05] shadow-2xl transition-all duration-500 rounded-[32px]",
+                "p-0 overflow-hidden bg-[#0a0a0a] border-white/[0.05] shadow-2xl transition-all duration-500 rounded-[32px] z-[50]",
                 isFullScreen ? "sm:max-w-[95vw] h-[90vh]" : isPlaylist && playlistVideos.length > 0 ? "sm:max-w-[1400px] h-[80vh]" : "sm:max-w-[1200px] h-[80vh]"
             )}>
                 <div className="flex h-full flex-col lg:flex-row divide-x divide-white/[0.05]">

@@ -77,6 +77,16 @@ const StrategicView: React.FC = () => {
     const [editingDocId, setEditingDocId] = useState<string | null>(null);
     const [editNameValue, setEditNameValue] = useState('');
 
+    // Keep docGoal in sync with goals array to prevent stale references
+    useEffect(() => {
+        if (docGoal) {
+            const freshGoal = goals.find(g => g.id === docGoal.id);
+            if (freshGoal && freshGoal !== docGoal) {
+                setDocGoal(freshGoal);
+            }
+        }
+    }, [goals, docGoal]);
+
     useEffect(() => {
         if (docGoal) {
             try {
@@ -90,7 +100,7 @@ const StrategicView: React.FC = () => {
         } else {
             setFileSystem([]); setCurrentFolderId(null); setActiveFileId(null);
         }
-    }, [docGoal]);
+    }, [docGoal?.id]);
 
     const submitGoal = (type: 'annual' | 'monthly') => {
         if (!newGoal.trim()) return;
@@ -160,7 +170,11 @@ const StrategicView: React.FC = () => {
     };
 
     // File System Helpers
-    const persistFileSystem = (items: DocItem[]) => { if (!docGoal) return; updateGoal(docGoal.id, { notes: mergeItemsIntoGoalNotes(docGoal, items) }); };
+    const persistFileSystem = (items: DocItem[]) => {
+        if (!docGoal) return;
+        const freshGoal = goals.find(g => g.id === docGoal.id) || docGoal;
+        updateGoal(freshGoal.id, { notes: mergeItemsIntoGoalNotes(freshGoal, items) });
+    };
     const handleCreateItem = (type: 'file' | 'folder') => {
         const newItem: DocItem = { id: Math.random().toString(36).substr(2, 9), name: type === 'file' ? 'Novo Documento' : 'Nova Pasta', type, content: '', parentId: currentFolderId, createdAt: Date.now() };
         const updated = [...fileSystem, newItem]; setFileSystem(updated); persistFileSystem(updated);
@@ -421,10 +435,11 @@ const StrategicView: React.FC = () => {
             </div>
 
             <YoutubePlayerDialog
-                goal={activeVideoGoal} isOpen={!!activeVideoGoal} onClose={() => setActiveVideoGoal(null)}
-                docItems={(() => { try { const notes = activeVideoGoal?.notes; if (notes && notes.startsWith('{')) return JSON.parse(notes).items || []; return notes ? [{ id: 'root-doc', name: 'Anotações', type: 'file', content: notes, parentId: null, createdAt: 0 }] : []; } catch { return []; } })()}
+                goal={activeVideoGoal ? (goals.find(g => g.id === activeVideoGoal.id) || activeVideoGoal) : null}
+                isOpen={!!activeVideoGoal} onClose={() => setActiveVideoGoal(null)}
+                docItems={(() => { try { const g = activeVideoGoal ? (goals.find(gx => gx.id === activeVideoGoal.id) || activeVideoGoal) : null; const notes = g?.notes; if (notes && notes.startsWith('{')) return JSON.parse(notes).items || []; return notes ? [{ id: 'root-doc', name: 'Anotações', type: 'file', content: notes, parentId: null, createdAt: 0 }] : []; } catch { return []; } })()}
                 onSaveProgress={handleSaveProgress} onLiveProgress={handleLiveProgressUpdate}
-                onSaveNotes={(items) => { if (activeVideoGoal) updateGoal(activeVideoGoal.id, { notes: mergeItemsIntoGoalNotes(activeVideoGoal, items) }); }}
+                onSaveNotes={(items) => { if (activeVideoGoal) { const fresh = goals.find(g => g.id === activeVideoGoal.id) || activeVideoGoal; updateGoal(fresh.id, { notes: mergeItemsIntoGoalNotes(fresh, items) }); } }}
             />
 
             {/* Doc Dialog - z-index fix */}

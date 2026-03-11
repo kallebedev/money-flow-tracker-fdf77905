@@ -77,6 +77,16 @@ const StrategicView: React.FC = () => {
     const [editingDocId, setEditingDocId] = useState<string | null>(null);
     const [editNameValue, setEditNameValue] = useState('');
 
+    // Keep docGoal in sync with goals array to prevent stale references
+    useEffect(() => {
+        if (docGoal) {
+            const freshGoal = goals.find(g => g.id === docGoal.id);
+            if (freshGoal && freshGoal !== docGoal) {
+                setDocGoal(freshGoal);
+            }
+        }
+    }, [goals, docGoal]);
+
     useEffect(() => {
         if (docGoal) {
             try {
@@ -90,7 +100,7 @@ const StrategicView: React.FC = () => {
         } else {
             setFileSystem([]); setCurrentFolderId(null); setActiveFileId(null);
         }
-    }, [docGoal]);
+    }, [docGoal?.id]);
 
     const submitGoal = (type: 'annual' | 'monthly') => {
         if (!newGoal.trim()) return;

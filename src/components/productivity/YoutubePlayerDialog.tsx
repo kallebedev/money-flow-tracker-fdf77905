@@ -445,7 +445,7 @@ export const YoutubePlayerDialog: React.FC<YoutubePlayerDialogProps> = ({
                             ) : (
                                 <ReactPlayer
                                     ref={playerRef}
-                                    url={cleanUrl}
+                                    url={playerUrl}
                                     width="100%" height="100%"
                                     controls playing={isOpen && !videoError}
                                     onPlay={handlePlay}
@@ -454,7 +454,16 @@ export const YoutubePlayerDialog: React.FC<YoutubePlayerDialogProps> = ({
                                     onEnded={handlePauseOrEnd}
                                     onReady={handleReady}
                                     onError={(e) => { console.error("Video Error:", e); setVideoError("Erro ao carregar o vídeo."); }}
-                                    config={{ youtube: { playerVars: { start: Math.floor(goal.youtubeTimestamp || 0), modestbranding: 1, rel: 0 } } }}
+                                    config={{
+                                        youtube: {
+                                            playerVars: {
+                                                start: Math.floor(goal.youtubeTimestamp || 0),
+                                                modestbranding: 1,
+                                                rel: 0,
+                                                ...(isPlaylist ? { listType: 'playlist', list: playlistId } : {}),
+                                            }
+                                        }
+                                    }}
                                 />
                             )}
                             {videoError && (

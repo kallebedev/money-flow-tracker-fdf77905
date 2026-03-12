@@ -37,6 +37,9 @@ export const YoutubePlayerDialog: React.FC<YoutubePlayerDialogProps> = ({
     const lastKnownProgressRef = useRef(0);
     const lastKnownTimestampRef = useRef(0);
     const saveIntervalRef = useRef<NodeJS.Timeout | null>(null);
+    const playlistBootstrapTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const playlistBootstrapAttemptsRef = useRef(0);
+    const fetchedVideoTitlesRef = useRef<Set<string>>(new Set());
 
     // Playlist state
     const [playlistVideos, setPlaylistVideos] = useState<PlaylistVideo[]>([]);

@@ -492,8 +492,8 @@ export const YoutubePlayerDialog: React.FC<YoutubePlayerDialogProps> = ({
                     )}
 
                     {/* Right: Study Docs */}
-                    <div className={cn("flex-1 bg-[#0a0a0a] flex flex-col h-full overflow-hidden relative z-10",
-                        isPlaylist && playlistVideos.length > 0 ? "lg:flex-[3]" : "lg:flex-[5]"
+                    <div className={cn("flex-1 bg-[#0a0a0a] flex flex-col min-h-[300px] md:min-h-0 overflow-hidden relative z-10",
+                        isPlaylist && playlistVideos.length > 0 ? "md:flex-[3]" : "md:flex-[5]"
                     )}>
                         <div className="p-4 border-b border-white/[0.05] bg-white/[0.01] flex items-center justify-between shrink-0">
                             <div className="flex flex-col min-w-0">

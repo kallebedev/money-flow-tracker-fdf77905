@@ -123,8 +123,37 @@ export const YoutubePlayerDialog: React.FC<YoutubePlayerDialogProps> = ({
         return extracted;
     })();
 
+    const getYouTubeParam = (url: string, key: string) => {
+        try {
+            return new URL(url).searchParams.get(key) || '';
+        } catch {
+            return '';
+        }
+    };
+
+    const extractYoutubeVideoId = (url: string) => {
+        try {
+            const parsed = new URL(url);
+            if (parsed.hostname.includes('youtu.be')) {
+                return parsed.pathname.replace('/', '').trim();
+            }
+            return parsed.searchParams.get('v') || '';
+        } catch {
+            return '';
+        }
+    };
+
+    const playlistId = getYouTubeParam(cleanUrl, 'list');
+    const primaryVideoId = extractYoutubeVideoId(cleanUrl);
     const isYouTube = cleanUrl.includes('youtube.com') || cleanUrl.includes('youtu.be');
-    const isPlaylist = cleanUrl.includes('list=');
+    const isPlaylist = Boolean(playlistId);
+    const hasPlaylistSidebar = isPlaylist && showPlaylist;
+
+    const playerUrl = (() => {
+        if (!isPlaylist) return cleanUrl;
+        if (primaryVideoId) return `https://www.youtube.com/watch?v=${primaryVideoId}`;
+        return `https://www.youtube.com/embed/videoseries?list=${playlistId}`;
+    })();
 
     const fetchVideoTitle = useCallback((videoId: string) => {
         if (fetchedVideoTitlesRef.current.has(videoId)) return;

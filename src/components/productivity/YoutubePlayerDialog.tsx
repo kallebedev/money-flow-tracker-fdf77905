@@ -198,6 +198,8 @@ export const YoutubePlayerDialog: React.FC<YoutubePlayerDialogProps> = ({
             if (typeof idx === 'number' && idx >= 0) {
                 setCurrentVideoIndex(idx);
             }
+            setIsPlaylistLoading(false);
+            setPlaylistLoadError(null);
 
             return true;
         } catch {

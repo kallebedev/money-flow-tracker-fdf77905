@@ -70,7 +70,6 @@ export const YoutubePlayerDialog: React.FC<YoutubePlayerDialogProps> = ({
             prevGoalIdRef.current = goal.id;
 
             if (goalChanged) {
-                // Only reset when opening a different goal
                 if (docItems && docItems.length > 0) {
                     setLocalFileSystem(docItems);
                 } else {
@@ -78,16 +77,28 @@ export const YoutubePlayerDialog: React.FC<YoutubePlayerDialogProps> = ({
                 }
                 setPlaylistVideos([]);
                 setCurrentVideoIndex(0);
+                setShowPlaylist(true);
                 setCurrentFolderId(null);
                 setActiveFileId(null);
                 setNoteDraft('');
                 setSearchTerm('');
                 setVideoError(null);
+                fetchedVideoTitlesRef.current.clear();
+                playlistBootstrapAttemptsRef.current = 0;
+                if (playlistBootstrapTimerRef.current) {
+                    clearTimeout(playlistBootstrapTimerRef.current);
+                    playlistBootstrapTimerRef.current = null;
+                }
             }
         } else if (!isOpen) {
             prevGoalIdRef.current = null;
+            playlistBootstrapAttemptsRef.current = 0;
+            if (playlistBootstrapTimerRef.current) {
+                clearTimeout(playlistBootstrapTimerRef.current);
+                playlistBootstrapTimerRef.current = null;
+            }
         }
-    }, [isOpen, goal?.id]);
+    }, [isOpen, goal?.id, docItems]);
 
     // URL processing
     const extractUrl = (text: string) => {
@@ -108,6 +119,77 @@ export const YoutubePlayerDialog: React.FC<YoutubePlayerDialogProps> = ({
 
     const isYouTube = cleanUrl.includes('youtube.com') || cleanUrl.includes('youtu.be');
     const isPlaylist = cleanUrl.includes('list=');
+
+    const fetchVideoTitle = useCallback((videoId: string) => {
+        if (fetchedVideoTitlesRef.current.has(videoId)) return;
+        fetchedVideoTitlesRef.current.add(videoId);
+
+        fetch(`https://noembed.com/embed?url=https://www.youtube.com/watch?v=${videoId}`)
+            .then(r => r.json())
+            .then(data => {
+                if (data?.title) {
+                    setPlaylistVideos(prev => prev.map(v => v.videoId === videoId ? { ...v, title: data.title } : v));
+                }
+            })
+            .catch(() => { });
+    }, []);
+
+    const hydratePlaylistFromPlayer = useCallback(() => {
+        if (!isPlaylist) return false;
+
+        try {
+            const internal = playerRef.current?.getInternalPlayer();
+            const videoIds: string[] = internal?.getPlaylist?.() || [];
+            if (videoIds.length === 0) return false;
+
+            setShowPlaylist(true);
+            setPlaylistVideos(prev => {
+                const prevById = new Map(prev.map(v => [v.videoId, v]));
+                return videoIds.map((videoId, index) => {
+                    const previous = prevById.get(videoId);
+                    if (!previous) fetchVideoTitle(videoId);
+
+                    return {
+                        videoId,
+                        title: previous?.title || `Vídeo ${index + 1}`,
+                        index,
+                        watchedPercent: previous?.watchedPercent ?? 0,
+                        status: previous?.status ?? 'not-started',
+                    } as PlaylistVideo;
+                });
+            });
+
+            const idx = internal?.getPlaylistIndex?.();
+            if (typeof idx === 'number' && idx >= 0) {
+                setCurrentVideoIndex(idx);
+            }
+
+            return true;
+        } catch {
+            return false;
+        }
+    }, [fetchVideoTitle, isPlaylist]);
+
+    const startPlaylistBootstrap = useCallback(() => {
+        if (!isPlaylist) return;
+
+        if (playlistBootstrapTimerRef.current) {
+            clearTimeout(playlistBootstrapTimerRef.current);
+            playlistBootstrapTimerRef.current = null;
+        }
+
+        playlistBootstrapAttemptsRef.current = 0;
+
+        const run = () => {
+            const loaded = hydratePlaylistFromPlayer();
+            if (loaded || playlistBootstrapAttemptsRef.current >= 8) return;
+
+            playlistBootstrapAttemptsRef.current += 1;
+            playlistBootstrapTimerRef.current = setTimeout(run, 600);
+        };
+
+        run();
+    }, [hydratePlaylistFromPlayer, isPlaylist]);
 
     // Progress handlers
     const saveCurrentProgress = useCallback(() => {
@@ -137,6 +219,11 @@ export const YoutubePlayerDialog: React.FC<YoutubePlayerDialogProps> = ({
         if (lastKnownProgress !== globalProgress) setLastKnownProgress(globalProgress);
         if (onLiveProgress && goal) onLiveProgress(goal.id, globalProgress);
 
+        if (isPlaylist && playlistVideos.length === 0) {
+            hydratePlaylistFromPlayer();
+            return;
+        }
+
         // Update playlist video progress
         if (isPlaylist && playlistVideos.length > 0) {
             try {
@@ -154,13 +241,16 @@ export const YoutubePlayerDialog: React.FC<YoutubePlayerDialogProps> = ({
                 }));
             } catch { }
         }
-    }, [goal, onLiveProgress, lastKnownProgress, isPlaylist, currentVideoIndex, playlistVideos.length]);
+    }, [goal, onLiveProgress, lastKnownProgress, isPlaylist, currentVideoIndex, playlistVideos.length, hydratePlaylistFromPlayer]);
 
     const handlePlay = useCallback(() => {
         setIsPlaying(true);
+        if (isPlaylist && playlistVideos.length === 0) {
+            startPlaylistBootstrap();
+        }
         if (saveIntervalRef.current) clearInterval(saveIntervalRef.current);
         saveIntervalRef.current = setInterval(() => saveCurrentProgress(), 5000);
-    }, [saveCurrentProgress]);
+    }, [isPlaylist, playlistVideos.length, saveCurrentProgress, startPlaylistBootstrap]);
 
     const handlePauseOrEnd = useCallback(() => {
         setIsPlaying(false);
@@ -171,25 +261,8 @@ export const YoutubePlayerDialog: React.FC<YoutubePlayerDialogProps> = ({
 
     const handleReady = useCallback(() => {
         if (!isPlaylist) return;
-        try {
-            const internal = playerRef.current?.getInternalPlayer();
-            const videoIds: string[] = internal?.getPlaylist?.() || [];
-            if (videoIds.length > 0) {
-                setPlaylistVideos(videoIds.map((vid, idx) => ({
-                    videoId: vid, title: `Vídeo ${idx + 1}`, index: idx, watchedPercent: 0, status: 'not-started' as const,
-                })));
-                videoIds.forEach((vid, idx) => {
-                    fetch(`https://noembed.com/embed?url=https://www.youtube.com/watch?v=${vid}`)
-                        .then(r => r.json())
-                        .then(data => {
-                            if (data.title) {
-                                setPlaylistVideos(prev => prev.map((v, i) => i === idx ? { ...v, title: data.title } : v));
-                            }
-                        }).catch(() => { });
-                });
-            }
-        } catch (e) { console.error(e); }
-    }, [isPlaylist]);
+        startPlaylistBootstrap();
+    }, [isPlaylist, startPlaylistBootstrap]);
 
     const playVideoAt = (idx: number) => {
         try {

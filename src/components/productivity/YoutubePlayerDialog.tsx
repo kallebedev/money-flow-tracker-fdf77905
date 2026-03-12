@@ -45,6 +45,8 @@ export const YoutubePlayerDialog: React.FC<YoutubePlayerDialogProps> = ({
     const [playlistVideos, setPlaylistVideos] = useState<PlaylistVideo[]>([]);
     const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
     const [showPlaylist, setShowPlaylist] = useState(true);
+    const [isPlaylistLoading, setIsPlaylistLoading] = useState(false);
+    const [playlistLoadError, setPlaylistLoadError] = useState<string | null>(null);
     const [isPlaying, setIsPlaying] = useState(false);
 
     // Focus tracking

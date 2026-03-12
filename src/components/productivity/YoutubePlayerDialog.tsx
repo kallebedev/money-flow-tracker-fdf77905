@@ -456,7 +456,7 @@ export const YoutubePlayerDialog: React.FC<YoutubePlayerDialogProps> = ({
 
                     {/* Playlist Sidebar */}
                     {isPlaylist && playlistVideos.length > 0 && showPlaylist && (
-                        <div className="lg:flex-[2] flex flex-col h-full bg-[#080808] overflow-hidden min-w-0">
+                        <div className="md:flex-[2] flex flex-col bg-[#080808] overflow-hidden min-w-0 h-[220px] md:h-full md:min-h-0">
                             <div className="p-3 border-b border-white/[0.05] flex items-center justify-between shrink-0">
                                 <div className="flex items-center gap-2">
                                     <List className="w-3.5 h-3.5 text-red-500" />

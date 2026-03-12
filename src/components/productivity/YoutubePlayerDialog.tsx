@@ -380,10 +380,10 @@ export const YoutubePlayerDialog: React.FC<YoutubePlayerDialogProps> = ({
                 "p-0 overflow-hidden bg-[#0a0a0a] border-white/[0.05] shadow-2xl transition-all duration-500 rounded-[32px] z-[50]",
                 isFullScreen ? "sm:max-w-[95vw] h-[90vh]" : isPlaylist && playlistVideos.length > 0 ? "sm:max-w-[1400px] h-[80vh]" : "sm:max-w-[1200px] h-[80vh]"
             )}>
-                <div className="flex h-full flex-col lg:flex-row divide-x divide-white/[0.05]">
+                <div className="flex h-full flex-col md:flex-row md:divide-x divide-y md:divide-y-0 divide-white/[0.05] overflow-y-auto md:overflow-hidden">
                     {/* Left: Video Player */}
-                    <div className={cn("flex-1 bg-[#050505] flex flex-col relative min-h-[300px]",
-                        isPlaylist && playlistVideos.length > 0 ? "lg:flex-[5]" : "lg:flex-[7]"
+                    <div className={cn("flex-1 bg-[#050505] flex flex-col relative min-h-[260px] md:min-h-0",
+                        isPlaylist && playlistVideos.length > 0 ? "md:flex-[5]" : "md:flex-[7]"
                     )}>
                         <div className="flex-1 relative group bg-black">
                             <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20">
